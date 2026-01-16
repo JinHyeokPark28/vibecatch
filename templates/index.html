@@ -17,7 +17,7 @@
     <div id="loadingOverlay" class="loading-overlay">
         <div class="loading-spinner"></div>
         <div class="loading-text">트렌드 수집 중...</div>
-        <div class="loading-status" id="loadingStatus">HN, Reddit, GitHub에서 최신 트렌드를 가져오고 있습니다</div>
+        <div class="loading-status" id="loadingStatus">HN, Reddit, Dev.to, Product Hunt, TLDR에서 최신 트렌드를 가져오고 있습니다</div>
         <div class="loading-progress">
             <div class="loading-step" id="step-hn">
                 <span class="loading-step-icon">○</span>
@@ -27,9 +27,17 @@
                 <span class="loading-step-icon">○</span>
                 <span>Reddit</span>
             </div>
-            <div class="loading-step" id="step-github">
+            <div class="loading-step" id="step-devto">
                 <span class="loading-step-icon">○</span>
-                <span>GitHub</span>
+                <span>Dev.to</span>
+            </div>
+            <div class="loading-step" id="step-ph">
+                <span class="loading-step-icon">○</span>
+                <span>Product Hunt</span>
+            </div>
+            <div class="loading-step" id="step-tldr">
+                <span class="loading-step-icon">○</span>
+                <span>TLDR</span>
             </div>
             <div class="loading-step" id="step-ai">
                 <span class="loading-step-icon">○</span>
@@ -61,8 +69,14 @@
             <button class="source-tab" data-filter="reddit" onclick="filterBySource('reddit', this)">
                 Reddit <span class="tab-count" id="count-reddit">0</span>
             </button>
-            <button class="source-tab" data-filter="github" onclick="filterBySource('github', this)">
-                GitHub <span class="tab-count" id="count-github">0</span>
+            <button class="source-tab" data-filter="devto" onclick="filterBySource('devto', this)">
+                Dev.to <span class="tab-count" id="count-devto">0</span>
+            </button>
+            <button class="source-tab" data-filter="producthunt" onclick="filterBySource('producthunt', this)">
+                PH <span class="tab-count" id="count-producthunt">0</span>
+            </button>
+            <button class="source-tab" data-filter="tldr" onclick="filterBySource('tldr', this)">
+                TLDR <span class="tab-count" id="count-tldr">0</span>
             </button>
         </div>
 
@@ -237,7 +251,7 @@
         // Initialize tab counts
         function initTabCounts() {
             const cards = document.querySelectorAll('.card');
-            const counts = { all: 0, hn: 0, reddit: 0, github: 0 };
+            const counts = { all: 0, hn: 0, reddit: 0, devto: 0, producthunt: 0, tldr: 0 };
 
             cards.forEach(card => {
                 counts.all++;
@@ -265,7 +279,7 @@
             overlay.classList.add('active');
 
             // Animate steps
-            const steps = ['hn', 'reddit', 'github', 'ai'];
+            const steps = ['hn', 'reddit', 'devto', 'ph', 'tldr', 'ai'];
             let currentStep = 0;
 
             function updateStep(stepId, state) {
@@ -295,13 +309,15 @@
                     const messages = [
                         'Hacker News에서 인기 글 수집 중...',
                         'Reddit 서브레딧 탐색 중...',
-                        'GitHub 트렌딩 레포 검색 중...',
+                        'Dev.to에서 개발 글 수집 중...',
+                        'Product Hunt에서 신규 제품 수집 중...',
+                        'TLDR 뉴스레터 수집 중...',
                         'Claude가 요약 생성 중...'
                     ];
                     status.textContent = messages[currentStep];
                     currentStep++;
                 }
-            }, 2000);
+            }, 1500);
 
             try {
                 const response = await fetch('/collect', {

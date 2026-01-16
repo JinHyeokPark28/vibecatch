@@ -148,8 +148,16 @@ h1 {
     color: #ff4500;
 }
 
-.source-tab[data-filter="github"].active {
-    color: #238636;
+.source-tab[data-filter="devto"].active {
+    color: #3b49df;
+}
+
+.source-tab[data-filter="producthunt"].active {
+    color: #da552f;
+}
+
+.source-tab[data-filter="tldr"].active {
+    color: #1a73e8;
 }
 
 .tab-count {
@@ -283,8 +291,19 @@ h1 {
     color: #fff;
 }
 
-.source-github {
-    background: #238636;
+.source-devto {
+    background: #0a0a0a;
+    color: #fff;
+    border: 1px solid #3b49df;
+}
+
+.source-producthunt {
+    background: #da552f;
+    color: #fff;
+}
+
+.source-tldr {
+    background: #1a73e8;
     color: #fff;
 }
 

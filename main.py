@@ -57,19 +57,25 @@ async def scheduled_collect():
     try:
         from collectors.hackernews import collect_and_save as collect_hn
         from collectors.reddit import collect_and_save as collect_reddit
-        from collectors.github import collect_and_save as collect_github
+        from collectors.devto import collect_and_save as collect_devto
+        from collectors.producthunt import collect_and_save as collect_ph
+        from collectors.tldr import collect_and_save as collect_tldr
         from summarizer import summarize_new_items
 
         hn_result = await collect_hn()
         reddit_result = await collect_reddit()
-        github_result = await collect_github()
+        devto_result = await collect_devto()
+        ph_result = await collect_ph()
+        tldr_result = await collect_tldr()
         summary_result = await summarize_new_items(limit=30)
 
         logger.info(
             f"Scheduled collection complete: "
             f"HN={hn_result['inserted']}, "
             f"Reddit={reddit_result['inserted']}, "
-            f"GitHub={github_result['inserted']}, "
+            f"DevTo={devto_result['inserted']}, "
+            f"PH={ph_result['inserted']}, "
+            f"TLDR={tldr_result['inserted']}, "
             f"Summarized={summary_result.summarized}"
         )
     except Exception as e:
@@ -193,7 +199,9 @@ async def collect_items(request: Request):
 
     from collectors.hackernews import collect_and_save as collect_hn
     from collectors.reddit import collect_and_save as collect_reddit
-    from collectors.github import collect_and_save as collect_github
+    from collectors.devto import collect_and_save as collect_devto
+    from collectors.producthunt import collect_and_save as collect_ph
+    from collectors.tldr import collect_and_save as collect_tldr
     from summarizer import summarize_new_items
 
     # Step 1: Collect from HN
@@ -204,9 +212,17 @@ async def collect_items(request: Request):
     logger.info(f"[{user_uuid[:8]}] Collecting from Reddit...")
     reddit_result = await collect_reddit()
 
-    # Step 3: Collect from GitHub
-    logger.info(f"[{user_uuid[:8]}] Collecting from GitHub...")
-    github_result = await collect_github()
+    # Step 3: Collect from Dev.to
+    logger.info(f"[{user_uuid[:8]}] Collecting from Dev.to...")
+    devto_result = await collect_devto()
+
+    # Step 4: Collect from Product Hunt
+    logger.info(f"[{user_uuid[:8]}] Collecting from Product Hunt...")
+    ph_result = await collect_ph()
+
+    # Step 5: Collect from TLDR
+    logger.info(f"[{user_uuid[:8]}] Collecting from TLDR...")
+    tldr_result = await collect_tldr()
 
     # Step 4: Summarize new items
     logger.info(f"[{user_uuid[:8]}] Starting summarization...")
@@ -219,7 +235,9 @@ async def collect_items(request: Request):
     log_event(user_uuid, "collect", {
         "hn": hn_result["inserted"],
         "reddit": reddit_result["inserted"],
-        "github": github_result["inserted"],
+        "devto": devto_result["inserted"],
+        "producthunt": ph_result["inserted"],
+        "tldr": tldr_result["inserted"],
         "summarized": summary_result.summarized,
     })
 
@@ -239,10 +257,20 @@ async def collect_items(request: Request):
                 "inserted": reddit_result["inserted"],
                 "skipped": reddit_result["skipped"],
             },
-            "github": {
-                "fetched": github_result["fetched"],
-                "inserted": github_result["inserted"],
-                "skipped": github_result["skipped"],
+            "devto": {
+                "fetched": devto_result["fetched"],
+                "inserted": devto_result["inserted"],
+                "skipped": devto_result["skipped"],
+            },
+            "producthunt": {
+                "fetched": ph_result["fetched"],
+                "inserted": ph_result["inserted"],
+                "skipped": ph_result["skipped"],
+            },
+            "tldr": {
+                "fetched": tldr_result["fetched"],
+                "inserted": tldr_result["inserted"],
+                "skipped": tldr_result["skipped"],
             },
         },
         "summarized": {
