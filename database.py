@@ -51,7 +51,7 @@ def _ensure_db_directory():
                 raise
 
 # Rate limit settings
-RATE_LIMIT_FREE_COLLECT = 3  # per day
+RATE_LIMIT_FREE_COLLECT = 10  # per day
 RATE_LIMIT_FREE_SUMMARIZE = 30  # per day
 
 

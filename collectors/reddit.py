@@ -16,7 +16,7 @@ from collectors.base import BaseCollector, BaseItem
 logger = logging.getLogger(__name__)
 
 # Configuration
-REDDIT_FETCH_COUNT = int(os.getenv("REDDIT_FETCH_COUNT", "20"))
+REDDIT_FETCH_COUNT = int(os.getenv("REDDIT_FETCH_COUNT", "25"))
 REQUEST_TIMEOUT = 10.0  # seconds
 
 # Subreddits relevant to vibe coders

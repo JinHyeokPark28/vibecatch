@@ -21,7 +21,7 @@ from collectors.base import BaseCollector, BaseItem
 logger = logging.getLogger(__name__)
 
 # Configuration
-TLDR_FETCH_COUNT = int(os.getenv("TLDR_FETCH_COUNT", "20"))
+TLDR_FETCH_COUNT = int(os.getenv("TLDR_FETCH_COUNT", "15"))
 REQUEST_TIMEOUT = 15.0
 
 # TLDR RSS feeds

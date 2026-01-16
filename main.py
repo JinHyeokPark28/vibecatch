@@ -4,6 +4,21 @@ VibeCatch - Trend Collector for Vibe Coders
 FastAPI application for collecting and reviewing HN/Reddit/GitHub trends.
 """
 
+from dotenv import load_dotenv
+import os
+import sys
+
+# .env 파일 로드 및 디버그
+loaded = load_dotenv()
+sys.stderr.write(f"[DEBUG] dotenv loaded: {loaded}\n")
+sys.stderr.write(f"[DEBUG] CWD: {os.getcwd()}\n")
+sys.stderr.write(f"[DEBUG] .env file exists: {os.path.exists('.env')}\n")
+sys.stderr.write(f"[DEBUG] ANTHROPIC_API_KEY set: {bool(os.getenv('ANTHROPIC_API_KEY'))}\n")
+if os.getenv('ANTHROPIC_API_KEY'):
+    sys.stderr.write(f"[DEBUG] ANTHROPIC_API_KEY prefix: {os.getenv('ANTHROPIC_API_KEY')[:15]}...\n")
+else:
+    sys.stderr.write("[DEBUG] ANTHROPIC_API_KEY: None\n")
+
 import asyncio
 import logging
 import os
@@ -626,4 +641,5 @@ async def analytics_api():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

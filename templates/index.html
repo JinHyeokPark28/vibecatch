@@ -15,7 +15,44 @@
 <body>
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay">
-        <div class="loading-spinner"></div>
+        <div class="catchball-scene" id="catchballScene">
+            <!-- Left Character (Blue) -->
+            <div class="catcher catcher-left">
+                <div class="catcher-body">
+                    <div class="catcher-eyes">
+                        <div class="catcher-eye"></div>
+                        <div class="catcher-eye"></div>
+                    </div>
+                    <div class="catcher-mouth"></div>
+                </div>
+                <div class="catcher-arm catcher-arm-left"></div>
+                <div class="catcher-arm catcher-arm-right"></div>
+            </div>
+
+            <!-- Right Character (Orange) -->
+            <div class="catcher catcher-right">
+                <div class="catcher-body">
+                    <div class="catcher-eyes">
+                        <div class="catcher-eye"></div>
+                        <div class="catcher-eye"></div>
+                    </div>
+                    <div class="catcher-mouth"></div>
+                </div>
+                <div class="catcher-arm catcher-arm-left"></div>
+                <div class="catcher-arm catcher-arm-right"></div>
+            </div>
+
+            <!-- The Ball -->
+            <div class="catchball"></div>
+
+            <!-- Sparkles -->
+            <div class="catch-sparkle">
+                <div class="sparkle"></div>
+                <div class="sparkle"></div>
+                <div class="sparkle"></div>
+                <div class="sparkle"></div>
+            </div>
+        </div>
         <div class="loading-text">트렌드 수집 중...</div>
         <div class="loading-status" id="loadingStatus">HN, Reddit, Dev.to, Product Hunt, TLDR에서 최신 트렌드를 가져오고 있습니다</div>
         <div class="loading-progress">
@@ -41,7 +78,7 @@
             </div>
             <div class="loading-step" id="step-ai">
                 <span class="loading-step-icon">○</span>
-                <span>AI 요약</span>
+                <span>AI 요약 <span id="ai-progress"></span></span>
             </div>
         </div>
     </div>
@@ -82,43 +119,91 @@
         </div>
 
         {% if items %}
-        <div class="card-list">
-            {% for item in items %}
-            <article class="card" data-id="{{ item.id }}" data-source="{{ item.source }}">
-                <div class="card-source">
-                    <span class="source-badge source-{{ item.source }}">{{ item.source | upper }}</span>
-                    <time class="card-time">{{ item.collected_at[:10] }}</time>
-                </div>
+        <div class="magazine-layout">
+            <!-- Featured Section (First Item) -->
+            {% if items|length > 0 %}
+            <section class="featured-section">
+                <div class="featured-label">Featured</div>
+                {% set item = items[0] %}
+                <article class="card card-featured" data-id="{{ item.id }}" data-source="{{ item.source }}">
+                    <div class="card-source">
+                        <span class="source-badge source-{{ item.source }}">{{ item.source | upper }}</span>
+                        <time class="card-time">{{ item.collected_at[:10] }}</time>
+                    </div>
 
-                <h2 class="card-title">
-                    <a href="#" onclick="toggleCard({{ item.id }}, event)">{{ item.title_ko or item.title }}</a>
-                </h2>
+                    <h2 class="card-title">
+                        <a href="#" onclick="toggleCard({{ item.id }}, event)">{{ item.title_ko or item.title }}</a>
+                    </h2>
 
-                <!-- Expanded Content (hidden by default) -->
-                <div class="card-expanded" id="expanded-{{ item.id }}" style="display: none;">
-                    <div class="expanded-loading">로딩 중...</div>
-                    <div class="expanded-content"></div>
-                    {% if item.url %}
-                    <a href="{{ item.url }}" target="_blank" rel="noopener" class="expanded-link">
-                        원문 보기 →
-                    </a>
+                    {% if item.title_ko %}
+                    <p class="card-original-title">{{ item.title }}</p>
                     {% endif %}
-                </div>
 
-                {% if item.title_ko %}
-                <p class="card-original-title">{{ item.title }}</p>
-                {% endif %}
+                    <p class="card-summary">{{ item.summary[:200] + '...' if item.summary and item.summary|length > 200 else item.summary or '' }}</p>
 
-                <div class="card-actions">
-                    <button class="btn btn-skip" onclick="reviewItem({{ item.id }}, 'skip')">
-                        건너뛰기
-                    </button>
-                    <button class="btn btn-like" onclick="reviewItem({{ item.id }}, 'like')">
-                        좋아요
-                    </button>
+                    <!-- Expanded Content (hidden by default) -->
+                    <div class="card-expanded" id="expanded-{{ item.id }}" style="display: none;">
+                        <div class="expanded-loading">로딩 중...</div>
+                        <div class="expanded-content"></div>
+                        {% if item.url %}
+                        <a href="{{ item.url }}" target="_blank" rel="noopener" class="expanded-link">
+                            원문 보기 →
+                        </a>
+                        {% endif %}
+                    </div>
+
+                    <div class="card-actions">
+                        <button class="btn btn-skip" onclick="reviewItem({{ item.id }}, 'skip')">
+                            건너뛰기
+                        </button>
+                        <button class="btn btn-like" onclick="reviewItem({{ item.id }}, 'like')">
+                            좋아요
+                        </button>
+                    </div>
+                </article>
+            </section>
+            {% endif %}
+
+            <!-- Grid Section (Remaining Items) -->
+            {% if items|length > 1 %}
+            <section class="grid-section">
+                <div class="grid-label">More Stories</div>
+                <div class="card-grid">
+                    {% for item in items[1:] %}
+                    <article class="card card-compact" data-id="{{ item.id }}" data-source="{{ item.source }}">
+                        <div class="card-source">
+                            <span class="source-badge source-{{ item.source }}">{{ item.source | upper }}</span>
+                            <time class="card-time">{{ item.collected_at[:10] }}</time>
+                        </div>
+
+                        <h2 class="card-title">
+                            <a href="#" onclick="toggleCard({{ item.id }}, event)">{{ item.title_ko or item.title }}</a>
+                        </h2>
+
+                        <!-- Expanded Content (hidden by default) -->
+                        <div class="card-expanded" id="expanded-{{ item.id }}" style="display: none;">
+                            <div class="expanded-loading">로딩 중...</div>
+                            <div class="expanded-content"></div>
+                            {% if item.url %}
+                            <a href="{{ item.url }}" target="_blank" rel="noopener" class="expanded-link">
+                                원문 보기 →
+                            </a>
+                            {% endif %}
+                        </div>
+
+                        <div class="card-actions">
+                            <button class="btn btn-skip" onclick="reviewItem({{ item.id }}, 'skip')">
+                                건너뛰기
+                            </button>
+                            <button class="btn btn-like" onclick="reviewItem({{ item.id }}, 'like')">
+                                좋아요
+                            </button>
+                        </div>
+                    </article>
+                    {% endfor %}
                 </div>
-            </article>
-            {% endfor %}
+            </section>
+            {% endif %}
         </div>
         {% else %}
         <div class="empty-state">
@@ -279,6 +364,14 @@
             btn.disabled = true;
             overlay.classList.add('active');
 
+            // Randomize catchball direction
+            const catchballScene = document.getElementById('catchballScene');
+            if (Math.random() > 0.5) {
+                catchballScene.style.transform = 'scaleX(-1)';
+            } else {
+                catchballScene.style.transform = 'scaleX(1)';
+            }
+
             // Animate steps
             const steps = ['hn', 'reddit', 'devto', 'ph', 'tldr', 'ai'];
             let currentStep = 0;
@@ -317,6 +410,16 @@
                     ];
                     status.textContent = messages[currentStep];
                     currentStep++;
+
+                    // AI 단계면 점 애니메이션 시작
+                    if (currentStep === 6) {
+                        let dots = 0;
+                        const aiProgress = document.getElementById('ai-progress');
+                        window.aiDotInterval = setInterval(() => {
+                            dots = (dots + 1) % 4;
+                            aiProgress.textContent = '.'.repeat(dots) + ' (최대 3분 소요)';
+                        }, 500);
+                    }
                 }
             }, 1500);
 
@@ -326,6 +429,7 @@
                 });
 
                 clearInterval(progressInterval);
+                if (window.aiDotInterval) clearInterval(window.aiDotInterval);
 
                 // Mark all as done
                 steps.forEach(s => updateStep(s, 'done'));
@@ -333,7 +437,9 @@
 
                 if (response.ok) {
                     const data = await response.json();
-                    const total = data.collected.hn.inserted + data.collected.reddit.inserted + data.collected.github.inserted;
+                    const total = data.collected.hn.inserted + data.collected.reddit.inserted +
+                                  data.collected.devto.inserted + data.collected.producthunt.inserted +
+                                  data.collected.tldr.inserted;
                     status.textContent = `${total}개 새 항목 추가, ${data.summarized.summarized}개 요약 완료!`;
 
                     setTimeout(() => location.reload(), 1500);
@@ -346,6 +452,7 @@
                 }
             } catch (error) {
                 clearInterval(progressInterval);
+                if (window.aiDotInterval) clearInterval(window.aiDotInterval);
                 console.error('Collect error:', error);
                 status.textContent = '오류 발생 - 다시 시도해주세요';
                 setTimeout(() => {

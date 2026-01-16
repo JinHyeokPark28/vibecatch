@@ -18,7 +18,22 @@
       "Bash(git push:*)",
       "Bash(railway status:*)",
       "WebFetch(domain:vibecatch.up.railway.app)",
-      "WebFetch(domain:www.threads.com)"
+      "WebFetch(domain:www.threads.com)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "WebFetch(domain:127.0.0.1)",
+      "Bash(sqlite3 vibecatch.db \"DELETE FROM items WHERE source = ''github''; SELECT changes\\(\\);\")",
+      "Bash(timeout /t)",
+      "Bash(start /b python:*)",
+      "Bash(if exist nul del /f nul)",
+      "Bash(dir nul)",
+      "Bash(timeout /t 3)",
+      "Bash(PORT=8082 python:*)",
+      "Bash(tasklist:*)",
+      "Bash(powershell -Command \"Get-Process -Id 118104,134732 2>$null | Select-Object Id,Name\")",
+      "Bash(powershell \"Stop-Process -Id 118104 -Force -ErrorAction SilentlyContinue; Stop-Process -Id 134732 -Force -ErrorAction SilentlyContinue; ''Done''\")",
+      "Bash(git reset:*)"
     ]
   }
 }

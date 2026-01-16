@@ -31,44 +31,93 @@
             <p class="empty-hint"><a href="/">리뷰 페이지</a>에서 좋아요를 눌러 취향을 학습시켜주세요</p>
         </div>
         {% elif items %}
-        <div class="card-list">
-            {% for item in items %}
-            <article class="card" data-id="{{ item.id }}" data-source="{{ item.source }}">
-                <div class="card-source">
-                    <span class="source-badge source-{{ item.source }}">{{ item.source | upper }}</span>
-                    <span class="preference-score">+{{ item.preference_score }}</span>
-                    <time class="card-time">{{ item.collected_at[:10] }}</time>
-                </div>
+        <div class="magazine-layout">
+            <!-- Featured Section (Top Recommendation) -->
+            {% if items|length > 0 %}
+            <section class="featured-section">
+                <div class="featured-label">Top Pick</div>
+                {% set item = items[0] %}
+                <article class="card card-featured" data-id="{{ item.id }}" data-source="{{ item.source }}">
+                    <div class="card-source">
+                        <span class="source-badge source-{{ item.source }}">{{ item.source | upper }}</span>
+                        <span class="preference-score">+{{ item.preference_score }}</span>
+                        <time class="card-time">{{ item.collected_at[:10] }}</time>
+                    </div>
 
-                <h2 class="card-title">
-                    <a href="#" onclick="toggleCard({{ item.id }}, event)">{{ item.title_ko or item.title }}</a>
-                </h2>
+                    <h2 class="card-title">
+                        <a href="#" onclick="toggleCard({{ item.id }}, event)">{{ item.title_ko or item.title }}</a>
+                    </h2>
 
-                <!-- Expanded Content (hidden by default) -->
-                <div class="card-expanded" id="expanded-{{ item.id }}" style="display: none;">
-                    <div class="expanded-loading">로딩 중...</div>
-                    <div class="expanded-content"></div>
-                    {% if item.url %}
-                    <a href="{{ item.url }}" target="_blank" rel="noopener" class="expanded-link">
-                        원문 보기 →
-                    </a>
+                    {% if item.title_ko %}
+                    <p class="card-original-title">{{ item.title }}</p>
                     {% endif %}
-                </div>
 
-                {% if item.title_ko %}
-                <p class="card-original-title">{{ item.title }}</p>
-                {% endif %}
+                    <p class="card-summary">{{ item.summary[:200] + '...' if item.summary and item.summary|length > 200 else item.summary or '' }}</p>
 
-                <div class="card-actions">
-                    <button class="btn btn-skip" onclick="reviewItem({{ item.id }}, 'skip')">
-                        건너뛰기
-                    </button>
-                    <button class="btn btn-like" onclick="reviewItem({{ item.id }}, 'like')">
-                        좋아요
-                    </button>
+                    <!-- Expanded Content (hidden by default) -->
+                    <div class="card-expanded" id="expanded-{{ item.id }}" style="display: none;">
+                        <div class="expanded-loading">로딩 중...</div>
+                        <div class="expanded-content"></div>
+                        {% if item.url %}
+                        <a href="{{ item.url }}" target="_blank" rel="noopener" class="expanded-link">
+                            원문 보기 →
+                        </a>
+                        {% endif %}
+                    </div>
+
+                    <div class="card-actions">
+                        <button class="btn btn-skip" onclick="reviewItem({{ item.id }}, 'skip')">
+                            건너뛰기
+                        </button>
+                        <button class="btn btn-like" onclick="reviewItem({{ item.id }}, 'like')">
+                            좋아요
+                        </button>
+                    </div>
+                </article>
+            </section>
+            {% endif %}
+
+            <!-- Grid Section (More Recommendations) -->
+            {% if items|length > 1 %}
+            <section class="grid-section">
+                <div class="grid-label">More For You</div>
+                <div class="card-grid">
+                    {% for item in items[1:] %}
+                    <article class="card card-compact" data-id="{{ item.id }}" data-source="{{ item.source }}">
+                        <div class="card-source">
+                            <span class="source-badge source-{{ item.source }}">{{ item.source | upper }}</span>
+                            <span class="preference-score">+{{ item.preference_score }}</span>
+                            <time class="card-time">{{ item.collected_at[:10] }}</time>
+                        </div>
+
+                        <h2 class="card-title">
+                            <a href="#" onclick="toggleCard({{ item.id }}, event)">{{ item.title_ko or item.title }}</a>
+                        </h2>
+
+                        <!-- Expanded Content (hidden by default) -->
+                        <div class="card-expanded" id="expanded-{{ item.id }}" style="display: none;">
+                            <div class="expanded-loading">로딩 중...</div>
+                            <div class="expanded-content"></div>
+                            {% if item.url %}
+                            <a href="{{ item.url }}" target="_blank" rel="noopener" class="expanded-link">
+                                원문 보기 →
+                            </a>
+                            {% endif %}
+                        </div>
+
+                        <div class="card-actions">
+                            <button class="btn btn-skip" onclick="reviewItem({{ item.id }}, 'skip')">
+                                건너뛰기
+                            </button>
+                            <button class="btn btn-like" onclick="reviewItem({{ item.id }}, 'like')">
+                                좋아요
+                            </button>
+                        </div>
+                    </article>
+                    {% endfor %}
                 </div>
-            </article>
-            {% endfor %}
+            </section>
+            {% endif %}
         </div>
         {% else %}
         <div class="empty-state">

@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 HN_API_BASE = "https://hacker-news.firebaseio.com/v0"
-HN_FETCH_COUNT = int(os.getenv("HN_FETCH_COUNT", "30"))
+HN_FETCH_COUNT = int(os.getenv("HN_FETCH_COUNT", "25"))
 REQUEST_TIMEOUT = 10.0  # seconds
 
 

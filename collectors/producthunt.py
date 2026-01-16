@@ -20,7 +20,7 @@ from collectors.base import BaseCollector, BaseItem
 logger = logging.getLogger(__name__)
 
 # Configuration
-PH_FETCH_COUNT = int(os.getenv("PH_FETCH_COUNT", "20"))
+PH_FETCH_COUNT = int(os.getenv("PH_FETCH_COUNT", "15"))
 REQUEST_TIMEOUT = 15.0
 
 # Product Hunt RSS feed
