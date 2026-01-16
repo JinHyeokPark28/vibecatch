@@ -33,6 +33,9 @@ from database import (
     log_event,
     update_daily_unique_users,
     get_analytics,
+    # v2.2: Smart features
+    expire_old_items,
+    get_for_you_items,
 )
 from utils import parse_tags_json
 
@@ -298,12 +301,16 @@ async def index(request: Request):
 
     Shows items with status='new', sorted by preference score (F005).
     v2.0: User-specific items and preferences.
+    v2.2: Smart expiration for old items.
     """
     user_uuid = request.state.user_uuid
 
     # v2.1: Log pageview
     log_event(user_uuid, "pageview", {"page": "/"})
     update_daily_unique_users()
+
+    # v2.2: Expire old items (3+ days)
+    expire_old_items(user_uuid, days=3)
 
     # v2.0: Sync new items for this user (in case new items were added)
     sync_items_for_user(user_uuid)
@@ -450,6 +457,44 @@ async def stats(request: Request):
             "negative_tags": negative_tags,
             "neutral_tags": neutral_tags,
             "total_tags": len(preferences),
+        }
+    )
+
+
+@app.get("/foryou", response_class=HTMLResponse)
+async def for_you(request: Request):
+    """
+    Personalized "For You" page.
+
+    Shows only items with high preference scores (>=3).
+    v2.2: Smart recommendation based on tag preferences.
+    """
+    user_uuid = request.state.user_uuid
+
+    # Log pageview
+    log_event(user_uuid, "pageview", {"page": "/foryou"})
+
+    # Expire old items first
+    expire_old_items(user_uuid, days=3)
+
+    # Sync new items
+    sync_items_for_user(user_uuid)
+
+    # Get personalized items (min_score=3)
+    items = get_for_you_items(user_uuid, min_score=3, limit=30)
+    preferences = get_user_preferences(user_uuid)
+
+    # Parse tags JSON for each item
+    for item in items:
+        item["tags"] = parse_tags_json(item.get("tags"))
+
+    return templates.TemplateResponse(
+        "foryou.html",
+        {
+            "request": request,
+            "items": items,
+            "total_count": len(items),
+            "has_preferences": len(preferences) > 0,
         }
     )
 

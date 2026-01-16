@@ -420,6 +420,91 @@ def get_user_preferences(user_uuid: str) -> dict[str, int]:
         return {row[0]: row[1] for row in cursor.fetchall()}
 
 
+def expire_old_items(user_uuid: str, days: int = 3) -> int:
+    """
+    Expire items older than specified days.
+
+    Changes status from 'new' to 'expired' for old items.
+
+    Args:
+        user_uuid: User UUID
+        days: Number of days before expiration (default 3)
+
+    Returns:
+        Number of items expired
+    """
+    from datetime import timedelta
+
+    cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE user_items
+            SET status = 'expired'
+            WHERE user_uuid = ?
+              AND status = 'new'
+              AND item_id IN (
+                  SELECT id FROM items WHERE collected_at < ?
+              )
+        """, (user_uuid, cutoff_date))
+
+        expired_count = cursor.rowcount
+        if expired_count > 0:
+            logger.info(f"Expired {expired_count} old items for user {user_uuid[:8]}...")
+
+        return expired_count
+
+
+def get_for_you_items(user_uuid: str, min_score: int = 3, limit: int = 20) -> list[dict]:
+    """
+    Get personalized "For You" items based on tag preferences.
+
+    Only returns items with preference score >= min_score.
+
+    Args:
+        user_uuid: User UUID
+        min_score: Minimum total preference score (default 3)
+        limit: Maximum items to return
+
+    Returns:
+        List of items with calculated scores
+    """
+    # Get user preferences
+    preferences = get_user_preferences(user_uuid)
+
+    if not preferences:
+        # No preferences yet, return empty
+        return []
+
+    # Get new items
+    items = get_user_items(user_uuid, status="new", limit=200)
+
+    # Calculate score for each item
+    scored_items = []
+    for item in items:
+        tags_json = item.get("tags")
+        if not tags_json:
+            continue
+
+        try:
+            tags = json.loads(tags_json) if isinstance(tags_json, str) else tags_json
+        except json.JSONDecodeError:
+            continue
+
+        # Calculate total score
+        total_score = sum(preferences.get(tag, 0) for tag in tags)
+
+        if total_score >= min_score:
+            item["preference_score"] = total_score
+            scored_items.append(item)
+
+    # Sort by score (highest first)
+    scored_items.sort(key=lambda x: x.get("preference_score", 0), reverse=True)
+
+    return scored_items[:limit]
+
+
 def review_item_for_user(user_uuid: str, item_id: int, action: str) -> bool:
     """
     Review an item for a specific user.

@@ -312,6 +312,17 @@ h1 {
     font-size: 0.75rem;
 }
 
+/* Preference Score Badge (For You) */
+.preference-score {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.2rem 0.5rem;
+    background: linear-gradient(135deg, #238636, #2ea043);
+    color: #fff;
+    border-radius: 4px;
+    margin-left: auto;
+}
+
 /* Card Title */
 .card-title {
     font-size: 1rem;
