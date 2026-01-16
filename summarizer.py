@@ -25,13 +25,19 @@ SUMMARIZE_PROMPT = """You are a tech news summarizer for Korean developers.
 
 Given a title and URL, provide:
 1. Korean translation of the title (natural, not literal)
-2. A 2-3 sentence summary in Korean
+2. A 2-3 sentence summary in Korean explaining what this is and why it matters
 3. Relevant tags from this list: {tags}
+
+Important rules:
+- For GitHub repos (format: "owner/repo" or "owner/repo: description"), explain what the project does
+- For Chinese titles, translate to natural Korean
+- Always provide a meaningful summary, not just repeating the title
+- If URL contains "github.com", focus on what the repository is for
 
 Respond in JSON format only:
 {{
   "title_ko": "자연스러운 한글 제목",
-  "summary": "2-3문장 한글 요약",
+  "summary": "2-3문장 한글 요약 (무엇인지, 왜 중요한지)",
   "tags": ["tag1", "tag2"]
 }}
 
