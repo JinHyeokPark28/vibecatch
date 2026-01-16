@@ -4,13 +4,106 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VibeCatch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container">
-        <h1>VibeCatch</h1>
-        <p>Trend collector for vibe coders</p>
-        <p class="status">Setup complete. Features coming soon...</p>
+        <header class="header">
+            <h1>VibeCatch</h1>
+            <p class="subtitle">{{ total_count }}개 리뷰 대기</p>
+        </header>
+
+        {% if items %}
+        <div class="card-list">
+            {% for item in items %}
+            <article class="card" data-id="{{ item.id }}">
+                <div class="card-source">
+                    <span class="source-badge source-{{ item.source }}">{{ item.source | upper }}</span>
+                    <time class="card-time">{{ item.collected_at[:10] }}</time>
+                </div>
+
+                <h2 class="card-title">
+                    {% if item.url %}
+                    <a href="{{ item.url }}" target="_blank" rel="noopener">{{ item.title_ko or item.title }}</a>
+                    {% else %}
+                    {{ item.title_ko or item.title }}
+                    {% endif %}
+                </h2>
+
+                {% if item.title_ko %}
+                <p class="card-original-title">{{ item.title }}</p>
+                {% endif %}
+
+                {% if item.summary %}
+                <p class="card-summary">{{ item.summary }}</p>
+                {% endif %}
+
+                {% if item.tags %}
+                <div class="card-tags">
+                    {% for tag in item.tags %}
+                    <span class="tag">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="card-actions">
+                    <button class="btn btn-skip" onclick="reviewItem({{ item.id }}, 'skip')">
+                        건너뛰기
+                    </button>
+                    <button class="btn btn-like" onclick="reviewItem({{ item.id }}, 'like')">
+                        좋아요
+                    </button>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>리뷰할 항목이 없습니다</p>
+            <p class="empty-hint"><code>POST /collect</code>로 새 항목을 수집하세요</p>
+        </div>
+        {% endif %}
     </div>
+
+    <script>
+        async function reviewItem(id, action) {
+            try {
+                const response = await fetch(`/review/${id}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ action: action }),
+                });
+
+                if (response.ok) {
+                    // Remove card from UI
+                    const card = document.querySelector(`[data-id="${id}"]`);
+                    if (card) {
+                        card.classList.add('card-exit');
+                        setTimeout(() => card.remove(), 300);
+                    }
+
+                    // Update count
+                    updateCount();
+                } else {
+                    console.error('Review failed:', await response.text());
+                }
+            } catch (error) {
+                console.error('Review error:', error);
+            }
+        }
+
+        function updateCount() {
+            const cards = document.querySelectorAll('.card');
+            const subtitle = document.querySelector('.subtitle');
+            if (subtitle) {
+                subtitle.textContent = `${cards.length}개 리뷰 대기`;
+            }
+        }
+    </script>
 </body>
 </html>

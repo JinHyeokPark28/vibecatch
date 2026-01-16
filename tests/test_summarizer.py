@@ -52,6 +52,7 @@ class TestSummarizeItem:
         mock_response = MagicMock()
         mock_response.content = [MagicMock()]
         mock_response.content[0].text = json.dumps({
+            "title_ko": "테스트 제목",
             "summary": "This is a test summary",
             "tags": ["ai", "startup"]
         })
@@ -64,6 +65,7 @@ class TestSummarizeItem:
                 result = await summarize_item("Test title", "https://example.com")
 
                 assert result is not None
+                assert result.title_ko == "테스트 제목"
                 assert result.summary == "This is a test summary"
                 assert result.tags == ["ai", "startup"]
 
@@ -73,6 +75,7 @@ class TestSummarizeItem:
         mock_response = MagicMock()
         mock_response.content = [MagicMock()]
         mock_response.content[0].text = json.dumps({
+            "title_ko": "테스트",
             "summary": "Summary",
             "tags": ["ai", "invalid-tag", "startup", "another-invalid"]
         })
@@ -103,8 +106,9 @@ class TestSummarizeItem:
             with patch.object(summarizer, 'get_client', return_value=mock_client):
                 result = await summarize_item("Original Title", "https://example.com")
 
-                # Should return title as summary with empty tags
+                # Should return title as fallback
                 assert result is not None
+                assert result.title_ko == "Original Title"
                 assert result.summary == "Original Title"
                 assert result.tags == []
 
@@ -113,7 +117,7 @@ class TestSummarizeItem:
         """Test handling of markdown code blocks in response."""
         mock_response = MagicMock()
         mock_response.content = [MagicMock()]
-        mock_response.content[0].text = '```json\n{"summary": "Test", "tags": ["ai"]}\n```'
+        mock_response.content[0].text = '```json\n{"title_ko": "테스트", "summary": "Test", "tags": ["ai"]}\n```'
 
         mock_client = MagicMock()
         mock_client.messages.create.return_value = mock_response
@@ -123,6 +127,7 @@ class TestSummarizeItem:
                 result = await summarize_item("Test", "https://example.com")
 
                 assert result is not None
+                assert result.title_ko == "테스트"
                 assert result.summary == "Test"
                 assert result.tags == ["ai"]
 
@@ -149,7 +154,7 @@ class TestSummarizeNewItems:
         ])
 
         # Mock successful summarization
-        mock_result = SummaryResult(summary="Mocked summary", tags=["ai"])
+        mock_result = SummaryResult(title_ko="테스트", summary="Mocked summary", tags=["ai"])
 
         with patch.object(summarizer, 'summarize_item', return_value=mock_result):
             result = await summarize_new_items(limit=10)
@@ -172,9 +177,10 @@ class TestSummarizeNewItems:
             assert result.total == 1
             assert result.failed == 1
 
-            # Verify item was updated with title as summary
+            # Verify item was updated with title as fallback
             from database import get_items_by_status
             items = get_items_by_status("new")
+            assert items[0]["title_ko"] == "Original Title"
             assert items[0]["summary"] == "Original Title"
             assert json.loads(items[0]["tags"]) == []
 

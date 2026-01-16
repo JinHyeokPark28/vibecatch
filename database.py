@@ -50,6 +50,7 @@ def init_db() -> None:
                 source TEXT NOT NULL,
                 external_id TEXT NOT NULL,
                 title TEXT NOT NULL,
+                title_ko TEXT,
                 url TEXT,
                 summary TEXT,
                 tags TEXT,
@@ -59,6 +60,12 @@ def init_db() -> None:
                 UNIQUE(source, external_id)
             )
         """)
+
+        # Add title_ko column if not exists (migration)
+        try:
+            cursor.execute("ALTER TABLE items ADD COLUMN title_ko TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
 
         # Preferences table - tag scores
         cursor.execute("""
@@ -162,13 +169,14 @@ def get_items_without_summary(limit: int = 10) -> list[dict]:
         return [dict(row) for row in cursor.fetchall()]
 
 
-def update_item_summary(item_id: int, summary: str, tags: list[str]) -> bool:
+def update_item_summary(item_id: int, title_ko: str, summary: str, tags: list[str]) -> bool:
     """
-    Update item with summary and tags.
+    Update item with Korean title, summary and tags.
 
     Args:
         item_id: Item ID
-        summary: AI-generated summary
+        title_ko: Korean translation of title
+        summary: AI-generated summary in Korean
         tags: List of tags
 
     Returns:
@@ -181,12 +189,12 @@ def update_item_summary(item_id: int, summary: str, tags: list[str]) -> bool:
             cursor = conn.cursor()
             cursor.execute("""
                 UPDATE items
-                SET summary = ?, tags = ?
+                SET title_ko = ?, summary = ?, tags = ?
                 WHERE id = ?
-            """, (summary, json.dumps(tags), item_id))
+            """, (title_ko, summary, json.dumps(tags), item_id))
 
             if cursor.rowcount > 0:
-                logger.info(f"Updated item {item_id} with summary")
+                logger.info(f"Updated item {item_id} with Korean title and summary")
                 return True
             else:
                 logger.warning(f"Item {item_id} not found")
@@ -194,6 +202,68 @@ def update_item_summary(item_id: int, summary: str, tags: list[str]) -> bool:
 
     except sqlite3.Error as e:
         logger.error(f"Failed to update item {item_id}: {e}")
+        return False
+
+
+def review_item(item_id: int, action: str) -> bool:
+    """
+    Review an item (like or skip).
+
+    Args:
+        item_id: Item ID
+        action: 'like' or 'skip'
+
+    Returns:
+        True if successful, False otherwise
+    """
+    import json
+    from datetime import datetime
+
+    if action not in ("like", "skip"):
+        logger.error(f"Invalid action: {action}")
+        return False
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Get item tags first
+            cursor.execute("SELECT tags FROM items WHERE id = ?", (item_id,))
+            row = cursor.fetchone()
+
+            if not row:
+                logger.warning(f"Item {item_id} not found")
+                return False
+
+            # Update item status
+            status = "liked" if action == "like" else "skipped"
+            cursor.execute("""
+                UPDATE items
+                SET status = ?, reviewed_at = ?
+                WHERE id = ?
+            """, (status, datetime.now().isoformat(), item_id))
+
+            # Update tag preferences
+            tags_json = row[0]
+            if tags_json:
+                tags = json.loads(tags_json)
+                score_delta = 1 if action == "like" else -1
+
+                for tag in tags:
+                    cursor.execute("""
+                        INSERT INTO preferences (tag, score, updated_at)
+                        VALUES (?, ?, ?)
+                        ON CONFLICT(tag) DO UPDATE SET
+                            score = score + ?,
+                            updated_at = ?
+                    """, (tag, score_delta, datetime.now().isoformat(),
+                          score_delta, datetime.now().isoformat()))
+
+            logger.info(f"Item {item_id} marked as {status}")
+            return True
+
+    except sqlite3.Error as e:
+        logger.error(f"Failed to review item {item_id}: {e}")
         return False
 
 

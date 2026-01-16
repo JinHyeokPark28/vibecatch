@@ -21,15 +21,17 @@ MODEL = "claude-sonnet-4-20250514"
 # Known tags for vibe coders (from PRD)
 KNOWN_TAGS = ["ai", "vibe-code", "solo", "saas", "startup", "llm", "python", "javascript", "rust", "go", "web", "mobile", "devtools", "opensource"]
 
-SUMMARIZE_PROMPT = """You are a tech news summarizer for developers.
+SUMMARIZE_PROMPT = """You are a tech news summarizer for Korean developers.
 
 Given a title and URL, provide:
-1. A 2-3 sentence summary of what this is about (in Korean)
-2. Relevant tags from this list: {tags}
+1. Korean translation of the title (natural, not literal)
+2. A 2-3 sentence summary in Korean
+3. Relevant tags from this list: {tags}
 
 Respond in JSON format only:
 {{
-  "summary": "2-3 sentence summary in Korean",
+  "title_ko": "자연스러운 한글 제목",
+  "summary": "2-3문장 한글 요약",
   "tags": ["tag1", "tag2"]
 }}
 
@@ -43,6 +45,7 @@ URL: {url}
 @dataclass
 class SummaryResult:
     """Result of summarization."""
+    title_ko: str
     summary: str
     tags: list[str]
 
@@ -99,18 +102,19 @@ async def summarize_item(title: str, url: Optional[str] = None) -> Optional[Summ
 
             data = json.loads(response_text.strip())
 
+            title_ko = data.get("title_ko", title)
             summary = data.get("summary", title)
             tags = data.get("tags", [])
 
             # Validate tags - only keep known tags
             valid_tags = [t for t in tags if t in KNOWN_TAGS]
 
-            return SummaryResult(summary=summary, tags=valid_tags)
+            return SummaryResult(title_ko=title_ko, summary=summary, tags=valid_tags)
 
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse Claude response as JSON: {e}")
-            # Return title as summary with empty tags
-            return SummaryResult(summary=title, tags=[])
+            # Return title as fallback with empty tags
+            return SummaryResult(title_ko=title, summary=title, tags=[])
 
     except APIError as e:
         logger.error(f"Claude API error: {e}")
@@ -157,6 +161,7 @@ async def summarize_new_items(limit: int = 10) -> BatchSummaryResult:
         if result:
             success = update_item_summary(
                 item["id"],
+                result.title_ko,
                 result.summary,
                 result.tags
             )
@@ -165,9 +170,9 @@ async def summarize_new_items(limit: int = 10) -> BatchSummaryResult:
             else:
                 failed += 1
         else:
-            # API failed - use title as summary with empty tags (ALWAYS rule)
-            logger.warning(f"Summarization failed for item {item['id']}, using title as summary")
-            update_item_summary(item["id"], item["title"], [])
+            # API failed - use original title with empty tags (ALWAYS rule)
+            logger.warning(f"Summarization failed for item {item['id']}, using original title")
+            update_item_summary(item["id"], item["title"], item["title"], [])
             failed += 1
 
     logger.info(f"Batch summarization complete: {summarized} summarized, {failed} failed")

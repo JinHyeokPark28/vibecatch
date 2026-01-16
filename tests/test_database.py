@@ -44,7 +44,7 @@ class TestGetItemsWithoutSummary:
         ])
 
         # Update one with summary
-        update_item_summary(1, "Summary 1", ["ai"])
+        update_item_summary(1, "테스트 1", "Summary 1", ["ai"])
 
         # Get items without summary
         items = get_items_without_summary()
@@ -73,19 +73,20 @@ class TestUpdateItemSummary:
             {"source": "hn", "external_id": "001", "title": "Test 1", "url": "https://test.com/1"},
         ])
 
-        result = update_item_summary(1, "This is a summary", ["ai", "startup"])
+        result = update_item_summary(1, "테스트 제목", "This is a summary", ["ai", "startup"])
 
         assert result is True
 
         # Verify update
         items = get_items_by_status("new")
         assert len(items) == 1
+        assert items[0]["title_ko"] == "테스트 제목"
         assert items[0]["summary"] == "This is a summary"
         assert json.loads(items[0]["tags"]) == ["ai", "startup"]
 
     def test_update_nonexistent_item(self, test_db):
         """Test update for non-existent item."""
-        result = update_item_summary(999, "Summary", [])
+        result = update_item_summary(999, "제목", "Summary", [])
 
         assert result is False
 
@@ -95,7 +96,7 @@ class TestUpdateItemSummary:
             {"source": "hn", "external_id": "001", "title": "Test 1", "url": "https://test.com/1"},
         ])
 
-        result = update_item_summary(1, "Summary", [])
+        result = update_item_summary(1, "테스트", "Summary", [])
 
         assert result is True
 
