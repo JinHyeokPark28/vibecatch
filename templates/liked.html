@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VibeCatch</title>
+    <title>VibeCatch - Liked</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -13,11 +13,10 @@
     <div class="container">
         <header class="header">
             <h1>VibeCatch</h1>
-            <p class="subtitle">{{ total_count }}개 리뷰 대기</p>
-            <button class="btn btn-collect" onclick="collectItems()">새로 수집</button>
+            <p class="subtitle">{{ total_count }}개 좋아요</p>
             <nav class="nav">
-                <a href="/" class="nav-link active">리뷰</a>
-                <a href="/liked" class="nav-link">좋아요</a>
+                <a href="/" class="nav-link">리뷰</a>
+                <a href="/liked" class="nav-link active">좋아요</a>
             </nav>
         </header>
 
@@ -49,12 +48,13 @@
                 <p class="card-original-title">{{ item.title }}</p>
                 {% endif %}
 
+                {% if item.reviewed_at %}
+                <p class="card-reviewed">{{ item.reviewed_at[:10] }} 좋아요</p>
+                {% endif %}
+
                 <div class="card-actions">
-                    <button class="btn btn-skip" onclick="reviewItem({{ item.id }}, 'skip')">
-                        건너뛰기
-                    </button>
-                    <button class="btn btn-like" onclick="reviewItem({{ item.id }}, 'like')">
-                        좋아요
+                    <button class="btn btn-unlike" onclick="unlikeItem({{ item.id }})">
+                        좋아요 취소
                     </button>
                 </div>
             </article>
@@ -62,13 +62,46 @@
         </div>
         {% else %}
         <div class="empty-state">
-            <p>리뷰할 항목이 없습니다</p>
-            <p class="empty-hint"><code>POST /collect</code>로 새 항목을 수집하세요</p>
+            <p>좋아요한 항목이 없습니다</p>
+            <p class="empty-hint"><a href="/">리뷰 페이지</a>에서 좋아요를 눌러보세요</p>
         </div>
         {% endif %}
     </div>
 
     <script>
+        async function unlikeItem(id) {
+            if (!confirm('좋아요를 취소하시겠습니까?')) return;
+
+            try {
+                const response = await fetch(`/review/${id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'skip' }),
+                });
+
+                if (response.ok) {
+                    const card = document.querySelector(`[data-id="${id}"]`);
+                    if (card) {
+                        card.classList.add('card-exit');
+                        setTimeout(() => {
+                            card.remove();
+                            updateCount();
+                        }, 300);
+                    }
+                }
+            } catch (error) {
+                console.error('Unlike error:', error);
+            }
+        }
+
+        function updateCount() {
+            const cards = document.querySelectorAll('.card');
+            const subtitle = document.querySelector('.subtitle');
+            if (subtitle) {
+                subtitle.textContent = `${cards.length}개 좋아요`;
+            }
+        }
+
         async function toggleCard(id, event) {
             event.preventDefault();
             const expandedDiv = document.getElementById(`expanded-${id}`);
@@ -123,70 +156,6 @@
                 // Collapse
                 expandedDiv.style.display = 'none';
                 card.classList.remove('card-expanded-state');
-            }
-        }
-
-        async function reviewItem(id, action) {
-            try {
-                const response = await fetch(`/review/${id}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ action: action }),
-                });
-
-                if (response.ok) {
-                    // Remove card from UI
-                    const card = document.querySelector(`[data-id="${id}"]`);
-                    if (card) {
-                        card.classList.add('card-exit');
-                        setTimeout(() => card.remove(), 300);
-                    }
-
-                    // Update count
-                    updateCount();
-                } else {
-                    console.error('Review failed:', await response.text());
-                }
-            } catch (error) {
-                console.error('Review error:', error);
-            }
-        }
-
-        function updateCount() {
-            const cards = document.querySelectorAll('.card');
-            const subtitle = document.querySelector('.subtitle');
-            if (subtitle) {
-                subtitle.textContent = `${cards.length}개 리뷰 대기`;
-            }
-        }
-
-        async function collectItems() {
-            const btn = document.querySelector('.btn-collect');
-            btn.disabled = true;
-            btn.textContent = '수집 중...';
-
-            try {
-                const response = await fetch('/collect', {
-                    method: 'POST',
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    const hn = data.collected.hn;
-                    const reddit = data.collected.reddit;
-                    alert(`수집 완료!\nHN: ${hn.inserted}개 추가\nReddit: ${reddit.inserted}개 추가\n요약: ${data.summarized.summarized}개`);
-                    location.reload();
-                } else {
-                    alert('수집 실패');
-                }
-            } catch (error) {
-                console.error('Collect error:', error);
-                alert('수집 중 오류 발생');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '새로 수집';
             }
         }
     </script>

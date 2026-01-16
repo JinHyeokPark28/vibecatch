@@ -166,6 +166,32 @@ class TestReviewRoute:
         assert data["success"] is False
 
 
+class TestLikedRoute:
+    """Tests for GET /liked endpoint."""
+
+    def test_liked_page_loads(self, client):
+        """Test liked page loads successfully."""
+        response = client.get("/liked")
+        assert response.status_code == 200
+        assert "VibeCatch" in response.text
+
+    def test_liked_with_items(self, client_with_items):
+        """Test liked page shows liked items."""
+        # First like an item
+        client_with_items.post("/review/1", json={"action": "like"})
+
+        response = client_with_items.get("/liked")
+        assert response.status_code == 200
+        assert "card-list" in response.text
+
+    def test_liked_has_nav(self, client):
+        """Test liked page has navigation."""
+        response = client.get("/liked")
+        assert response.status_code == 200
+        assert 'href="/"' in response.text
+        assert 'href="/liked"' in response.text
+
+
 class TestItemDetail:
     """Tests for GET /item/{id} endpoint."""
 

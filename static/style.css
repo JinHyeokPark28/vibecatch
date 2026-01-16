@@ -57,6 +57,50 @@ h1 {
     cursor: not-allowed;
 }
 
+/* Navigation */
+.nav {
+    margin-top: 1rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.nav-link {
+    color: #8b949e;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+    color: #c9d1d9;
+    background: #21262d;
+}
+
+.nav-link.active {
+    color: #58a6ff;
+    background: #21262d;
+}
+
+/* Reviewed timestamp */
+.card-reviewed {
+    color: #238636;
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+/* Unlike button */
+.btn-unlike {
+    background: transparent;
+    color: #f85149;
+    border: 1px solid #f85149;
+}
+
+.btn-unlike:hover {
+    background: #f8514922;
+}
+
 /* Card List */
 .card-list {
     display: flex;

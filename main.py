@@ -207,8 +207,36 @@ async def get_item_detail(item_id: int):
     }
 
 
+@app.get("/liked", response_class=HTMLResponse)
+async def liked_items(request: Request):
+    """
+    Liked items list.
+
+    Shows items with status='liked'.
+    """
+    items = get_items_by_status(status="liked", limit=100)
+
+    # Parse tags JSON for each item
+    for item in items:
+        if item.get("tags"):
+            try:
+                item["tags"] = json.loads(item["tags"])
+            except json.JSONDecodeError:
+                item["tags"] = []
+        else:
+            item["tags"] = []
+
+    return templates.TemplateResponse(
+        "liked.html",
+        {
+            "request": request,
+            "items": items,
+            "total_count": len(items),
+        }
+    )
+
+
 # Routes to be added:
-# - GET /liked : Liked items list
 # - GET /stats : Preference statistics
 
 
