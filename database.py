@@ -205,6 +205,19 @@ def update_item_summary(item_id: int, title_ko: str, summary: str, tags: list[st
         return False
 
 
+def get_preferences() -> dict[str, int]:
+    """
+    Get all tag preference scores.
+
+    Returns:
+        Dict mapping tag names to scores
+    """
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT tag, score FROM preferences")
+        return {row[0]: row[1] for row in cursor.fetchall()}
+
+
 def review_item(item_id: int, action: str) -> bool:
     """
     Review an item (like or skip).

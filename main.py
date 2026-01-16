@@ -16,7 +16,7 @@ from fastapi.templating import Jinja2Templates
 
 from pydantic import BaseModel
 
-from database import init_db, get_items_by_status, review_item
+from database import init_db, get_items_by_status, get_preferences, review_item
 
 # Configure logging
 logging.basicConfig(
@@ -93,15 +93,26 @@ async def collect_items():
     }
 
 
+def calculate_priority(item: dict, preferences: dict[str, int]) -> int:
+    """Calculate item priority based on tag preferences."""
+    tags = item.get("tags", [])
+    if isinstance(tags, str):
+        try:
+            tags = json.loads(tags)
+        except json.JSONDecodeError:
+            tags = []
+    return sum(preferences.get(tag, 0) for tag in tags)
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """
     Card review UI - displays items for review.
 
-    Shows items with status='new', sorted by collected_at (newest first).
-    Priority sorting will be added in F005.
+    Shows items with status='new', sorted by preference score (F005).
     """
     items = get_items_by_status(status="new", limit=50)
+    preferences = get_preferences()
 
     # Parse tags JSON for each item
     for item in items:
@@ -112,6 +123,9 @@ async def index(request: Request):
                 item["tags"] = []
         else:
             item["tags"] = []
+
+    # Sort by preference score (F005)
+    items.sort(key=lambda x: calculate_priority(x, preferences), reverse=True)
 
     return templates.TemplateResponse(
         "index.html",

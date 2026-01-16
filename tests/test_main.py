@@ -9,8 +9,8 @@ from fastapi.testclient import TestClient
 # Set test database before importing main
 os.environ["DATABASE_PATH"] = ":memory:"
 
-from main import app
-from database import init_db, save_items
+from main import app, calculate_priority
+from database import init_db, save_items, update_item_summary, review_item
 
 
 @pytest.fixture
@@ -161,3 +161,61 @@ class TestReviewRoute:
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is False
+
+
+class TestPrioritySort:
+    """Tests for F005 priority sorting."""
+
+    def test_calculate_priority_with_preferences(self):
+        """Test priority calculation with preferences."""
+        preferences = {"ai": 3, "startup": 2, "llm": 1}
+        item = {"tags": ["ai", "startup"]}
+
+        priority = calculate_priority(item, preferences)
+        assert priority == 5  # 3 + 2
+
+    def test_calculate_priority_no_matching_tags(self):
+        """Test priority calculation with no matching tags."""
+        preferences = {"ai": 3}
+        item = {"tags": ["web", "mobile"]}
+
+        priority = calculate_priority(item, preferences)
+        assert priority == 0
+
+    def test_calculate_priority_empty_tags(self):
+        """Test priority calculation with empty tags."""
+        preferences = {"ai": 3}
+        item = {"tags": []}
+
+        priority = calculate_priority(item, preferences)
+        assert priority == 0
+
+    def test_items_sorted_by_preference(self):
+        """Test that items are sorted by preference score."""
+        init_db()
+
+        # Create items with different tags
+        save_items([
+            {"source": "hn", "external_id": "low", "title": "Low Priority", "url": "https://test.com/1"},
+            {"source": "hn", "external_id": "high", "title": "High Priority", "url": "https://test.com/2"},
+        ])
+
+        # Add tags
+        update_item_summary(1, "낮은 우선순위", "Low summary", ["web"])
+        update_item_summary(2, "높은 우선순위", "High summary", ["ai"])
+
+        # Like an item with 'ai' tag to boost ai preference
+        review_item(2, "like")
+
+        # Restore item to 'new' status for testing
+        import database
+        with database.get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE items SET status = 'new'")
+
+        # Get items - should be sorted by preference
+        client = TestClient(app)
+        response = client.get("/")
+
+        # High priority item (with ai tag) should come first
+        assert response.text.index("높은 우선순위") < response.text.index("낮은 우선순위")
