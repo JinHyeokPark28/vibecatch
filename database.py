@@ -838,33 +838,51 @@ def get_analytics(days: int = 7) -> dict:
                 "hit_rate": round((source_likes / source_total * 100), 1) if source_total > 0 else 0
             }
 
-        # Top tags by engagement
-        cursor.execute("""
-            SELECT tag, SUM(score) as total_score
-            FROM user_preferences
-            GROUP BY tag
-            ORDER BY total_score DESC
-            LIMIT 10
-        """)
-        top_tags = [{"tag": row[0], "score": row[1]} for row in cursor.fetchall()]
+        # Top tags by engagement (try user_preferences first, fallback to preferences)
+        try:
+            cursor.execute("""
+                SELECT tag, SUM(score) as total_score
+                FROM user_preferences
+                GROUP BY tag
+                ORDER BY total_score DESC
+                LIMIT 10
+            """)
+            top_tags = [{"tag": row[0], "score": row[1]} for row in cursor.fetchall()]
+        except sqlite3.OperationalError:
+            # Fallback to legacy preferences table
+            try:
+                cursor.execute("""
+                    SELECT tag, score FROM preferences
+                    ORDER BY score DESC
+                    LIMIT 10
+                """)
+                top_tags = [{"tag": row[0], "score": row[1]} for row in cursor.fetchall()]
+            except sqlite3.OperationalError:
+                top_tags = []
 
-        # Retention (D1, D7)
+        # Retention (D1)
         today = datetime.now().strftime("%Y-%m-%d")
-        cursor.execute("""
-            SELECT COUNT(DISTINCT user_uuid) FROM users
-            WHERE DATE(created_at) = DATE(?, '-1 day')
-        """, (today,))
-        yesterday_new = cursor.fetchone()[0]
+        d1_retention = 0
 
-        cursor.execute("""
-            SELECT COUNT(DISTINCT e.user_uuid) FROM events e
-            JOIN users u ON e.user_uuid = u.uuid
-            WHERE DATE(u.created_at) = DATE(?, '-1 day')
-              AND DATE(e.created_at) = ?
-        """, (today, today))
-        d1_returned = cursor.fetchone()[0]
+        try:
+            cursor.execute("""
+                SELECT COUNT(DISTINCT uuid) FROM users
+                WHERE DATE(created_at) = DATE(?, '-1 day')
+            """, (today,))
+            yesterday_new = cursor.fetchone()[0]
 
-        d1_retention = round((d1_returned / yesterday_new * 100), 1) if yesterday_new > 0 else 0
+            if yesterday_new > 0:
+                cursor.execute("""
+                    SELECT COUNT(DISTINCT e.user_uuid) FROM events e
+                    JOIN users u ON e.user_uuid = u.uuid
+                    WHERE DATE(u.created_at) = DATE(?, '-1 day')
+                      AND DATE(e.created_at) = ?
+                """, (today, today))
+                d1_returned = cursor.fetchone()[0]
+                d1_retention = round((d1_returned / yesterday_new * 100), 1)
+        except sqlite3.OperationalError:
+            # events table may not exist yet
+            pass
 
         return {
             "summary": {
