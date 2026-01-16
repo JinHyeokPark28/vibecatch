@@ -14,7 +14,8 @@
       "Bash(docker build:*)",
       "Bash(pip-audit:*)",
       "Bash(pip check:*)",
-      "Bash(git remote add:*)"
+      "Bash(git remote add:*)",
+      "Bash(git push:*)"
     ]
   }
 }

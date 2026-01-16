@@ -439,6 +439,86 @@ h1 {
     background: linear-gradient(90deg, #f85149, #da3633);
 }
 
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(13, 17, 23, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.loading-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid #21262d;
+    border-top: 3px solid #58a6ff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1.5rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+    color: #c9d1d9;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.loading-status {
+    color: #8b949e;
+    font-size: 0.85rem;
+    text-align: center;
+    max-width: 300px;
+}
+
+.loading-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    width: 250px;
+}
+
+.loading-step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+    color: #6e7681;
+}
+
+.loading-step.active {
+    color: #58a6ff;
+}
+
+.loading-step.done {
+    color: #238636;
+}
+
+.loading-step-icon {
+    width: 20px;
+    text-align: center;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     .container {
