@@ -264,7 +264,6 @@
                 {% if sources %}
                 <div class="decision-box">
                     <div class="decision-title">CTO 인사이트</div>
-                    {% set best_source = sources | dictsort(by='value', reverse=true) | first %}
                     가장 인기 있는 소스 집중. 비인기 소스는 수집 빈도 줄여서 API 비용 절감 고려.
                 </div>
                 {% endif %}
