@@ -17,6 +17,8 @@ from typing import Optional
 
 import httpx
 
+from collectors.base import BaseCollector, BaseItem
+
 logger = logging.getLogger(__name__)
 
 # Configuration
@@ -34,14 +36,11 @@ TOPICS = ["ai", "llm", "machine-learning", "developer-tools", "saas", "cli"]
 
 
 @dataclass
-class GitHubItem:
+class GitHubItem(BaseItem):
     """Represents a GitHub repository."""
-    external_id: str
-    title: str
-    url: Optional[str]
-    description: Optional[str]
-    stars: int
-    language: Optional[str]
+    description: Optional[str] = None
+    stars: int = 0
+    language: Optional[str] = None
     source: str = "github"
 
     def to_dict(self) -> dict:
@@ -57,6 +56,16 @@ class GitHubItem:
             "title": title,
             "url": self.url,
         }
+
+
+class GitHubCollector(BaseCollector):
+    """Collector for GitHub trending repositories."""
+
+    source_name = "GitHub"
+
+    async def fetch_items(self, count: int = GITHUB_FETCH_COUNT) -> list[GitHubItem]:
+        """Fetch trending repos from GitHub."""
+        return await fetch_trending_repos(count)
 
 
 async def search_trending_repos(
@@ -205,23 +214,13 @@ async def collect_and_save(count: int = GITHUB_FETCH_COUNT) -> dict:
         count: Number of repos to fetch
 
     Returns:
-        Dict with collection results
+        Dict with collection results (for backward compatibility)
     """
-    from database import save_items
-
-    # Fetch repos
-    items = await fetch_trending_repos(count)
-
-    if not items:
-        logger.warning("No items fetched from GitHub")
-        return {"fetched": 0, "inserted": 0, "skipped": 0}
-
-    # Convert to dicts and save
-    item_dicts = [item.to_dict() for item in items]
-    result = save_items(item_dicts)
+    collector = GitHubCollector()
+    result = await collector.collect_and_save(count)
 
     return {
-        "fetched": len(items),
+        "fetched": result.fetched,
         "inserted": result.inserted,
         "skipped": result.skipped,
     }

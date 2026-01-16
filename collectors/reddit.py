@@ -9,9 +9,9 @@ import asyncio
 import logging
 import os
 from dataclasses import dataclass
-from typing import Optional
-
 import httpx
+
+from collectors.base import BaseCollector, BaseItem
 
 logger = logging.getLogger(__name__)
 
@@ -33,22 +33,20 @@ USER_AGENT = "VibeCatch/1.0 (Trend Collector for Vibe Coders)"
 
 
 @dataclass
-class RedditItem:
+class RedditItem(BaseItem):
     """Represents a Reddit post."""
-    external_id: str
-    title: str
-    url: Optional[str]
-    subreddit: str
+    subreddit: str = ""
     source: str = "reddit"
 
-    def to_dict(self) -> dict:
-        """Convert to dictionary for database insertion."""
-        return {
-            "source": self.source,
-            "external_id": self.external_id,
-            "title": self.title,
-            "url": self.url,
-        }
+
+class RedditCollector(BaseCollector):
+    """Collector for Reddit hot posts."""
+
+    source_name = "Reddit"
+
+    async def fetch_items(self, count: int = REDDIT_FETCH_COUNT) -> list[RedditItem]:
+        """Fetch hot posts from Reddit."""
+        return await fetch_hot_posts(count)
 
 
 async def fetch_subreddit_posts(
@@ -138,23 +136,13 @@ async def collect_and_save(count: int = REDDIT_FETCH_COUNT) -> dict:
         count: Number of posts to fetch
 
     Returns:
-        Dict with collection results
+        Dict with collection results (for backward compatibility)
     """
-    from database import save_items
-
-    # Fetch posts
-    items = await fetch_hot_posts(count)
-
-    if not items:
-        logger.warning("No items fetched from Reddit")
-        return {"fetched": 0, "inserted": 0, "skipped": 0}
-
-    # Convert to dicts and save
-    item_dicts = [item.to_dict() for item in items]
-    result = save_items(item_dicts)
+    collector = RedditCollector()
+    result = await collector.collect_and_save(count)
 
     return {
-        "fetched": len(items),
+        "fetched": result.fetched,
         "inserted": result.inserted,
         "skipped": result.skipped,
     }

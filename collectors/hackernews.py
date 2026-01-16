@@ -13,6 +13,8 @@ from typing import Optional
 
 import httpx
 
+from collectors.base import BaseCollector, BaseItem
+
 logger = logging.getLogger(__name__)
 
 # Configuration
@@ -22,21 +24,19 @@ REQUEST_TIMEOUT = 10.0  # seconds
 
 
 @dataclass
-class HNItem:
+class HNItem(BaseItem):
     """Represents a Hacker News item."""
-    external_id: str
-    title: str
-    url: Optional[str]
     source: str = "hn"
 
-    def to_dict(self) -> dict:
-        """Convert to dictionary for database insertion."""
-        return {
-            "source": self.source,
-            "external_id": self.external_id,
-            "title": self.title,
-            "url": self.url,
-        }
+
+class HackerNewsCollector(BaseCollector):
+    """Collector for Hacker News top stories."""
+
+    source_name = "Hacker News"
+
+    async def fetch_items(self, count: int = HN_FETCH_COUNT) -> list[HNItem]:
+        """Fetch top stories from Hacker News."""
+        return await fetch_top_stories(count)
 
 
 async def fetch_top_story_ids(client: httpx.AsyncClient) -> list[int]:
@@ -124,23 +124,13 @@ async def collect_and_save(count: int = HN_FETCH_COUNT) -> dict:
         count: Number of stories to fetch
 
     Returns:
-        Dict with collection results
+        Dict with collection results (for backward compatibility)
     """
-    from database import save_items
-
-    # Fetch stories
-    items = await fetch_top_stories(count)
-
-    if not items:
-        logger.warning("No items fetched from Hacker News")
-        return {"fetched": 0, "inserted": 0, "skipped": 0}
-
-    # Convert to dicts and save
-    item_dicts = [item.to_dict() for item in items]
-    result = save_items(item_dicts)
+    collector = HackerNewsCollector()
+    result = await collector.collect_and_save(count)
 
     return {
-        "fetched": len(items),
+        "fetched": result.fetched,
         "inserted": result.inserted,
         "skipped": result.skipped,
     }

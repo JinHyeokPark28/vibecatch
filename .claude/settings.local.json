@@ -8,7 +8,13 @@
       "Bash(pip install:*)",
       "Bash(ruff check:*)",
       "Bash(pytest:*)",
-      "Bash(git init:*)"
+      "Bash(git init:*)",
+      "Bash(uvicorn main:app:*)",
+      "Bash(curl:*)",
+      "Bash(docker build:*)",
+      "Bash(pip-audit:*)",
+      "Bash(pip check:*)",
+      "Bash(git remote add:*)"
     ]
   }
 }

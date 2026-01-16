@@ -40,8 +40,8 @@
 
 ## Next Tasks
 
-1. [ ] B002: /stats 페이지 (백로그 추가됨)
-2. [ ] GitHub Collector (선택)
+1. [x] B002: /stats 페이지 - COMMITTED (a8cb89a)
+2. [x] GitHub Collector - COMMITTED (aa1dc3a)
 3. [ ] 배포 준비
 
 ---

@@ -9,8 +9,6 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-import json
-
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +19,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from database import init_db, get_items_by_status, get_preferences, get_item_by_id, review_item
+from utils import parse_tags_json
 
 # Configure logging
 logging.basicConfig(
@@ -173,12 +172,7 @@ async def collect_items():
 
 def calculate_priority(item: dict, preferences: dict[str, int]) -> int:
     """Calculate item priority based on tag preferences."""
-    tags = item.get("tags", [])
-    if isinstance(tags, str):
-        try:
-            tags = json.loads(tags)
-        except json.JSONDecodeError:
-            tags = []
+    tags = parse_tags_json(item.get("tags"))
     return sum(preferences.get(tag, 0) for tag in tags)
 
 
@@ -194,13 +188,7 @@ async def index(request: Request):
 
     # Parse tags JSON for each item
     for item in items:
-        if item.get("tags"):
-            try:
-                item["tags"] = json.loads(item["tags"])
-            except json.JSONDecodeError:
-                item["tags"] = []
-        else:
-            item["tags"] = []
+        item["tags"] = parse_tags_json(item.get("tags"))
 
     # Sort by preference score (F005)
     items.sort(key=lambda x: calculate_priority(x, preferences), reverse=True)
@@ -251,12 +239,7 @@ async def get_item_detail(item_id: int):
         return {"success": False, "error": "Item not found"}
 
     # Parse tags
-    tags = []
-    if item.get("tags"):
-        try:
-            tags = json.loads(item["tags"])
-        except json.JSONDecodeError:
-            tags = []
+    tags = parse_tags_json(item.get("tags"))
 
     return {
         "success": True,
@@ -284,13 +267,7 @@ async def liked_items(request: Request):
 
     # Parse tags JSON for each item
     for item in items:
-        if item.get("tags"):
-            try:
-                item["tags"] = json.loads(item["tags"])
-            except json.JSONDecodeError:
-                item["tags"] = []
-        else:
-            item["tags"] = []
+        item["tags"] = parse_tags_json(item.get("tags"))
 
     return templates.TemplateResponse(
         "liked.html",
