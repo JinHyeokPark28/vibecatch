@@ -19,10 +19,36 @@ logger = logging.getLogger(__name__)
 
 DATABASE_PATH = os.getenv("DATABASE_PATH", "vibecatch.db")
 
-# Ensure directory exists for database file
-_db_dir = os.path.dirname(DATABASE_PATH)
-if _db_dir and not os.path.exists(_db_dir):
-    os.makedirs(_db_dir, exist_ok=True)
+
+def _ensure_db_directory():
+    """Ensure database directory exists with retry for Volume mount."""
+    import time
+
+    db_dir = os.path.dirname(DATABASE_PATH)
+    if not db_dir:
+        return  # Using filename only, no directory needed
+
+    max_retries = 10
+    retry_delay = 1  # seconds
+
+    for attempt in range(max_retries):
+        try:
+            if not os.path.exists(db_dir):
+                os.makedirs(db_dir, exist_ok=True)
+            # Test if we can write to the directory
+            test_file = os.path.join(db_dir, ".write_test")
+            with open(test_file, "w") as f:
+                f.write("test")
+            os.remove(test_file)
+            logger.info(f"Database directory ready: {db_dir}")
+            return
+        except (OSError, PermissionError) as e:
+            if attempt < max_retries - 1:
+                logger.warning(f"Waiting for volume mount (attempt {attempt + 1}/{max_retries}): {e}")
+                time.sleep(retry_delay)
+            else:
+                logger.error(f"Failed to access database directory after {max_retries} attempts: {e}")
+                raise
 
 # Rate limit settings
 RATE_LIMIT_FREE_COLLECT = 3  # per day
@@ -53,6 +79,9 @@ def get_db() -> Generator[sqlite3.Connection, None, None]:
 
 def init_db() -> None:
     """Initialize database tables (v2.0 schema)."""
+    # v2.0: Ensure directory exists (with retry for Railway Volume mount)
+    _ensure_db_directory()
+
     with get_db() as conn:
         cursor = conn.cursor()
 
