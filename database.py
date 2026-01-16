@@ -205,6 +205,15 @@ def update_item_summary(item_id: int, title_ko: str, summary: str, tags: list[st
         return False
 
 
+def get_item_by_id(item_id: int) -> dict | None:
+    """Get a single item by ID."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM items WHERE id = ?", (item_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
 def get_preferences() -> dict[str, int]:
     """
     Get all tag preference scores.

@@ -16,7 +16,7 @@ from fastapi.templating import Jinja2Templates
 
 from pydantic import BaseModel
 
-from database import init_db, get_items_by_status, get_preferences, review_item
+from database import init_db, get_items_by_status, get_preferences, get_item_by_id, review_item
 
 # Configure logging
 logging.basicConfig(
@@ -170,6 +170,41 @@ async def review(item_id: int, request: ReviewRequest):
         return {"success": True, "item_id": item_id, "action": request.action}
     else:
         return {"success": False, "error": "Item not found or update failed."}
+
+
+@app.get("/item/{item_id}")
+async def get_item_detail(item_id: int):
+    """
+    Get item detail for card expansion.
+
+    Returns item info including summary for display.
+    """
+    item = get_item_by_id(item_id)
+
+    if not item:
+        return {"success": False, "error": "Item not found"}
+
+    # Parse tags
+    tags = []
+    if item.get("tags"):
+        try:
+            tags = json.loads(item["tags"])
+        except json.JSONDecodeError:
+            tags = []
+
+    return {
+        "success": True,
+        "item": {
+            "id": item["id"],
+            "source": item["source"],
+            "title": item["title"],
+            "title_ko": item.get("title_ko"),
+            "url": item.get("url"),
+            "summary": item.get("summary"),
+            "tags": tags,
+            "collected_at": item.get("collected_at"),
+        }
+    }
 
 
 # Routes to be added:

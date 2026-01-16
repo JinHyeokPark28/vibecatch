@@ -14,6 +14,7 @@
         <header class="header">
             <h1>VibeCatch</h1>
             <p class="subtitle">{{ total_count }}개 리뷰 대기</p>
+            <button class="btn btn-collect" onclick="collectItems()">새로 수집</button>
         </header>
 
         {% if items %}
@@ -26,12 +27,19 @@
                 </div>
 
                 <h2 class="card-title">
-                    {% if item.url %}
-                    <a href="{{ item.url }}" target="_blank" rel="noopener">{{ item.title_ko or item.title }}</a>
-                    {% else %}
-                    {{ item.title_ko or item.title }}
-                    {% endif %}
+                    <a href="#" onclick="toggleCard({{ item.id }}, event)">{{ item.title_ko or item.title }}</a>
                 </h2>
+
+                <!-- Expanded Content (hidden by default) -->
+                <div class="card-expanded" id="expanded-{{ item.id }}" style="display: none;">
+                    <div class="expanded-loading">로딩 중...</div>
+                    <div class="expanded-content"></div>
+                    {% if item.url %}
+                    <a href="{{ item.url }}" target="_blank" rel="noopener" class="expanded-link">
+                        원문 보기 →
+                    </a>
+                    {% endif %}
+                </div>
 
                 {% if item.title_ko %}
                 <p class="card-original-title">{{ item.title }}</p>
@@ -69,6 +77,63 @@
     </div>
 
     <script>
+        async function toggleCard(id, event) {
+            event.preventDefault();
+            const expandedDiv = document.getElementById(`expanded-${id}`);
+            const card = document.querySelector(`[data-id="${id}"]`);
+
+            if (expandedDiv.style.display === 'none') {
+                // Expand
+                expandedDiv.style.display = 'block';
+                card.classList.add('card-expanded-state');
+
+                // Fetch content if not loaded
+                const contentDiv = expandedDiv.querySelector('.expanded-content');
+                const loadingDiv = expandedDiv.querySelector('.expanded-loading');
+
+                if (!contentDiv.innerHTML) {
+                    try {
+                        const response = await fetch(`/item/${id}`);
+                        const data = await response.json();
+
+                        if (data.success) {
+                            loadingDiv.style.display = 'none';
+                            let html = '';
+
+                            if (data.item.summary) {
+                                html += `<p class="expanded-summary">${data.item.summary}</p>`;
+                            }
+
+                            if (data.item.tags && data.item.tags.length > 0) {
+                                html += '<div class="expanded-tags">';
+                                data.item.tags.forEach(tag => {
+                                    html += `<span class="tag">${tag}</span>`;
+                                });
+                                html += '</div>';
+                            }
+
+                            if (!html) {
+                                html = '<p class="expanded-empty">추가 정보가 없습니다.</p>';
+                            }
+
+                            contentDiv.innerHTML = html;
+                        } else {
+                            loadingDiv.textContent = '로드 실패';
+                        }
+                    } catch (error) {
+                        console.error('Error fetching item:', error);
+                        loadingDiv.textContent = '로드 실패';
+                    }
+                } else {
+                    loadingDiv.style.display = 'none';
+                }
+            } else {
+                // Collapse
+                expandedDiv.style.display = 'none';
+                card.classList.remove('card-expanded-state');
+            }
+        }
+
         async function reviewItem(id, action) {
             try {
                 const response = await fetch(`/review/${id}`, {
@@ -102,6 +167,34 @@
             const subtitle = document.querySelector('.subtitle');
             if (subtitle) {
                 subtitle.textContent = `${cards.length}개 리뷰 대기`;
+            }
+        }
+
+        async function collectItems() {
+            const btn = document.querySelector('.btn-collect');
+            btn.disabled = true;
+            btn.textContent = '수집 중...';
+
+            try {
+                const response = await fetch('/collect', {
+                    method: 'POST',
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const hn = data.collected.hn;
+                    const reddit = data.collected.reddit;
+                    alert(`수집 완료!\nHN: ${hn.inserted}개 추가\nReddit: ${reddit.inserted}개 추가\n요약: ${data.summarized.summarized}개`);
+                    location.reload();
+                } else {
+                    alert('수집 실패');
+                }
+            } catch (error) {
+                console.error('Collect error:', error);
+                alert('수집 중 오류 발생');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '새로 수집';
             }
         }
     </script>

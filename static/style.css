@@ -39,6 +39,24 @@ h1 {
     font-size: 0.9rem;
 }
 
+.btn-collect {
+    margin-top: 1rem;
+    background: #1f6feb;
+    color: #fff;
+    padding: 0.5rem 1.5rem;
+    font-size: 0.9rem;
+}
+
+.btn-collect:hover {
+    background: #388bfd;
+}
+
+.btn-collect:disabled {
+    background: #21262d;
+    color: #8b949e;
+    cursor: not-allowed;
+}
+
 /* Card List */
 .card-list {
     display: flex;
@@ -62,6 +80,79 @@ h1 {
 .card-exit {
     opacity: 0;
     transform: translateX(100px);
+}
+
+/* Card Expanded State */
+.card-expanded-state {
+    border-color: #58a6ff;
+    background: #1c2128;
+}
+
+/* Expanded Content */
+.card-expanded {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #30363d;
+    animation: expandIn 0.3s ease-out;
+}
+
+@keyframes expandIn {
+    from {
+        opacity: 0;
+        max-height: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        max-height: 500px;
+        transform: translateY(0);
+    }
+}
+
+.expanded-loading {
+    color: #8b949e;
+    font-size: 0.85rem;
+    padding: 0.5rem 0;
+}
+
+.expanded-summary {
+    color: #c9d1d9;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: #0d1117;
+    border-radius: 6px;
+    border-left: 3px solid #58a6ff;
+}
+
+.expanded-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.expanded-link {
+    display: inline-block;
+    color: #58a6ff;
+    font-size: 0.85rem;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    background: #21262d;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.expanded-link:hover {
+    background: #30363d;
+    color: #79c0ff;
+}
+
+.expanded-empty {
+    color: #6e7681;
+    font-size: 0.85rem;
+    font-style: italic;
 }
 
 /* Card Source */

@@ -166,6 +166,27 @@ class TestReviewRoute:
         assert data["success"] is False
 
 
+class TestItemDetail:
+    """Tests for GET /item/{id} endpoint."""
+
+    def test_get_item_detail_success(self, client_with_items):
+        """Test successful item detail fetch."""
+        response = client_with_items.get("/item/1")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "item" in data
+        assert data["item"]["id"] == 1
+
+    def test_get_item_detail_not_found(self, client):
+        """Test item detail for non-existent item."""
+        response = client.get("/item/999")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is False
+        assert "not found" in data["error"].lower()
+
+
 class TestPrioritySort:
     """Tests for F005 priority sorting."""
 
