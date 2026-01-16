@@ -170,9 +170,8 @@ async def summarize_new_items(limit: int = 10) -> BatchSummaryResult:
             else:
                 failed += 1
         else:
-            # API failed - use original title with empty tags (ALWAYS rule)
-            logger.warning(f"Summarization failed for item {item['id']}, using original title")
-            update_item_summary(item["id"], item["title"], item["title"], [])
+            # API failed - leave as NULL for retry later
+            logger.warning(f"Summarization failed for item {item['id']}, will retry later")
             failed += 1
 
     logger.info(f"Batch summarization complete: {summarized} summarized, {failed} failed")

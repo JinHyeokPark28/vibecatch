@@ -553,12 +553,21 @@ def get_items_by_status(status: str = "new", limit: int = 100) -> list[dict]:
 
 
 def get_items_without_summary(limit: int = 10) -> list[dict]:
-    """Get items that don't have a summary yet."""
+    """
+    Get items that need summarization.
+
+    Includes:
+    - Items with no summary (NULL)
+    - Items where summary equals title (failed summarization fallback)
+    """
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
             SELECT * FROM items
             WHERE summary IS NULL
+               OR summary = title
+               OR title_ko IS NULL
+               OR title_ko = title
             ORDER BY collected_at DESC
             LIMIT ?
         """, (limit,))
