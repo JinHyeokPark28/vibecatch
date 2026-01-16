@@ -2,18 +2,18 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies
+# Install system dependencies + Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy application
 COPY . .
 
-# Create non-root user and data directory
-RUN useradd -m appuser && \
-    mkdir -p /data && \
-    chown -R appuser:appuser /app /data
-USER appuser
+# Create data directory
+# Note: Running as root because Railway Volume mounts with root ownership
+RUN mkdir -p /data
 
 # Expose port
 EXPOSE 8000
