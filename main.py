@@ -29,6 +29,10 @@ from database import (
     review_item_for_user,
     check_rate_limit,
     increment_rate_limit,
+    # v2.1: Analytics functions
+    log_event,
+    update_daily_unique_users,
+    get_analytics,
 )
 from utils import parse_tags_json
 
@@ -176,6 +180,8 @@ async def collect_items(request: Request):
     # v2.0: Check rate limit
     allowed, remaining = check_rate_limit(user_uuid, "collect")
     if not allowed:
+        # v2.1: Log rate limit hit
+        log_event(user_uuid, "rate_limit_hit", {"action": "collect"})
         return JSONResponse(
             status_code=429,
             content={
@@ -208,6 +214,14 @@ async def collect_items(request: Request):
 
     # v2.0: Increment rate limit after successful collection
     increment_rate_limit(user_uuid, "collect")
+
+    # v2.1: Log collect event
+    log_event(user_uuid, "collect", {
+        "hn": hn_result["inserted"],
+        "reddit": reddit_result["inserted"],
+        "github": github_result["inserted"],
+        "summarized": summary_result.summarized,
+    })
 
     # v2.0: Sync new items for this user
     synced = sync_items_for_user(user_uuid)
@@ -259,6 +273,10 @@ async def index(request: Request):
     """
     user_uuid = request.state.user_uuid
 
+    # v2.1: Log pageview
+    log_event(user_uuid, "pageview", {"page": "/"})
+    update_daily_unique_users()
+
     # v2.0: Sync new items for this user (in case new items were added)
     sync_items_for_user(user_uuid)
 
@@ -305,6 +323,8 @@ async def review(item_id: int, body: ReviewRequest, request: Request):
     success = review_item_for_user(user_uuid, item_id, body.action)
 
     if success:
+        # v2.1: Log like/skip event
+        log_event(user_uuid, body.action, {"item_id": item_id})
         return {"success": True, "item_id": item_id, "action": body.action}
     else:
         return {"success": False, "error": "Item not found or update failed."}
@@ -350,6 +370,9 @@ async def liked_items(request: Request):
     """
     user_uuid = request.state.user_uuid
 
+    # v2.1: Log pageview
+    log_event(user_uuid, "pageview", {"page": "/liked"})
+
     # v2.0: Get user-specific liked items
     items = get_user_items(user_uuid, status="liked", limit=100)
 
@@ -376,6 +399,9 @@ async def stats(request: Request):
     v2.0: User-specific preferences.
     """
     user_uuid = request.state.user_uuid
+
+    # v2.1: Log pageview
+    log_event(user_uuid, "pageview", {"page": "/stats"})
 
     # v2.0: Get user-specific preferences
     preferences = get_user_preferences(user_uuid)
@@ -444,6 +470,43 @@ async def scheduler_trigger():
         "success": True,
         "message": "Collection triggered in background",
     }
+
+
+# ============================================
+# ANALYTICS ENDPOINTS (v2.1)
+# ============================================
+
+@app.get("/analytics", response_class=HTMLResponse)
+async def analytics_dashboard(request: Request):
+    """
+    Analytics dashboard for PM/CTO.
+
+    Shows key metrics for product decisions.
+    """
+    # Get analytics data
+    data = get_analytics(days=7)
+
+    return templates.TemplateResponse(
+        "analytics.html",
+        {
+            "request": request,
+            "summary": data["summary"],
+            "daily": data["daily"],
+            "sources": data["sources"],
+            "top_tags": data["top_tags"],
+            "retention": data["retention"],
+        }
+    )
+
+
+@app.get("/analytics/api")
+async def analytics_api():
+    """
+    Analytics API endpoint (JSON).
+
+    For external tools or custom dashboards.
+    """
+    return get_analytics(days=30)
 
 
 if __name__ == "__main__":

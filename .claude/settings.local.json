@@ -16,7 +16,9 @@
       "Bash(pip check:*)",
       "Bash(git remote add:*)",
       "Bash(git push:*)",
-      "Bash(railway status:*)"
+      "Bash(railway status:*)",
+      "WebFetch(domain:vibecatch.up.railway.app)",
+      "WebFetch(domain:www.threads.com)"
     ]
   }
 }

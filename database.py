@@ -158,6 +158,36 @@ def init_db() -> None:
         """)
 
         # ============================================
+        # ANALYTICS TABLES (v2.1)
+        # ============================================
+
+        # Events log - all user actions
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY,
+                user_uuid TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                event_data TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_uuid) REFERENCES users(uuid)
+            )
+        """)
+
+        # Daily stats - aggregated metrics
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS daily_stats (
+                date TEXT PRIMARY KEY,
+                unique_users INTEGER DEFAULT 0,
+                pageviews INTEGER DEFAULT 0,
+                collects INTEGER DEFAULT 0,
+                likes INTEGER DEFAULT 0,
+                skips INTEGER DEFAULT 0,
+                rate_limit_hits INTEGER DEFAULT 0,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # ============================================
         # INDEXES
         # ============================================
         cursor.execute("""
@@ -171,6 +201,10 @@ def init_db() -> None:
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_user_preferences
             ON user_preferences(user_uuid)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_events_type_date
+            ON events(event_type, created_at)
         """)
 
         # ============================================
@@ -645,6 +679,208 @@ def review_item(item_id: int, action: str) -> bool:
     except sqlite3.Error as e:
         logger.error(f"Failed to review item {item_id}: {e}")
         return False
+
+
+# ============================================
+# ANALYTICS FUNCTIONS (v2.1)
+# ============================================
+
+def log_event(user_uuid: str, event_type: str, event_data: dict | None = None) -> None:
+    """
+    Log an analytics event.
+
+    Event types:
+    - pageview: {page: '/', '/liked', '/stats'}
+    - collect: {hn: N, reddit: N, github: N}
+    - like: {item_id: N, source: 'hn'}
+    - skip: {item_id: N, source: 'hn'}
+    - rate_limit_hit: {action: 'collect'}
+    """
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO events (user_uuid, event_type, event_data, created_at)
+                VALUES (?, ?, ?, ?)
+            """, (user_uuid, event_type, json.dumps(event_data) if event_data else None,
+                  datetime.now().isoformat()))
+
+            # Update daily stats
+            _update_daily_stats(cursor, event_type)
+
+    except sqlite3.Error as e:
+        logger.warning(f"Failed to log event: {e}")
+
+
+def _update_daily_stats(cursor: sqlite3.Cursor, event_type: str) -> None:
+    """Update daily aggregated stats."""
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # Map event type to column
+    column_map = {
+        "pageview": "pageviews",
+        "collect": "collects",
+        "like": "likes",
+        "skip": "skips",
+        "rate_limit_hit": "rate_limit_hits",
+    }
+
+    column = column_map.get(event_type)
+    if not column:
+        return
+
+    cursor.execute(f"""
+        INSERT INTO daily_stats (date, {column}, updated_at)
+        VALUES (?, 1, ?)
+        ON CONFLICT(date) DO UPDATE SET
+            {column} = {column} + 1,
+            updated_at = ?
+    """, (today, datetime.now().isoformat(), datetime.now().isoformat()))
+
+
+def update_daily_unique_users() -> None:
+    """Update unique users count for today (call once per user session)."""
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Count unique users from events today
+        cursor.execute("""
+            SELECT COUNT(DISTINCT user_uuid) FROM events
+            WHERE DATE(created_at) = ?
+        """, (today,))
+        unique_count = cursor.fetchone()[0]
+
+        cursor.execute("""
+            INSERT INTO daily_stats (date, unique_users, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(date) DO UPDATE SET
+                unique_users = ?,
+                updated_at = ?
+        """, (today, unique_count, datetime.now().isoformat(),
+              unique_count, datetime.now().isoformat()))
+
+
+def get_analytics(days: int = 7) -> dict:
+    """
+    Get analytics data for dashboard.
+
+    Returns:
+        {
+            "summary": {total_users, total_items, total_likes, hit_rate},
+            "daily": [{date, users, pageviews, likes, skips, hit_rate}, ...],
+            "sources": {hn: N, reddit: N, github: N},
+            "top_tags": [{tag, likes, skips}, ...],
+            "retention": {d1, d7}
+        }
+    """
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Summary stats
+        cursor.execute("SELECT COUNT(*) FROM users")
+        total_users = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM items")
+        total_items = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM user_items WHERE status = 'liked'")
+        total_likes = cursor.fetchone()[0]
+
+        cursor.execute("SELECT COUNT(*) FROM user_items WHERE status = 'skipped'")
+        total_skips = cursor.fetchone()[0]
+
+        total_reviews = total_likes + total_skips
+        hit_rate = round((total_likes / total_reviews * 100), 1) if total_reviews > 0 else 0
+
+        # Daily stats
+        cursor.execute("""
+            SELECT date, unique_users, pageviews, likes, skips, collects, rate_limit_hits
+            FROM daily_stats
+            ORDER BY date DESC
+            LIMIT ?
+        """, (days,))
+        daily = []
+        for row in cursor.fetchall():
+            day_likes = row[3] or 0
+            day_skips = row[4] or 0
+            day_total = day_likes + day_skips
+            day_hit_rate = round((day_likes / day_total * 100), 1) if day_total > 0 else 0
+            daily.append({
+                "date": row[0],
+                "users": row[1] or 0,
+                "pageviews": row[2] or 0,
+                "likes": day_likes,
+                "skips": day_skips,
+                "collects": row[5] or 0,
+                "rate_limit_hits": row[6] or 0,
+                "hit_rate": day_hit_rate,
+            })
+
+        # Source preference
+        cursor.execute("""
+            SELECT i.source,
+                   SUM(CASE WHEN ui.status = 'liked' THEN 1 ELSE 0 END) as likes,
+                   SUM(CASE WHEN ui.status = 'skipped' THEN 1 ELSE 0 END) as skips
+            FROM items i
+            JOIN user_items ui ON i.id = ui.item_id
+            GROUP BY i.source
+        """)
+        sources = {}
+        for row in cursor.fetchall():
+            source_likes = row[1] or 0
+            source_skips = row[2] or 0
+            source_total = source_likes + source_skips
+            sources[row[0]] = {
+                "likes": source_likes,
+                "skips": source_skips,
+                "hit_rate": round((source_likes / source_total * 100), 1) if source_total > 0 else 0
+            }
+
+        # Top tags by engagement
+        cursor.execute("""
+            SELECT tag, SUM(score) as total_score
+            FROM user_preferences
+            GROUP BY tag
+            ORDER BY total_score DESC
+            LIMIT 10
+        """)
+        top_tags = [{"tag": row[0], "score": row[1]} for row in cursor.fetchall()]
+
+        # Retention (D1, D7)
+        today = datetime.now().strftime("%Y-%m-%d")
+        cursor.execute("""
+            SELECT COUNT(DISTINCT user_uuid) FROM users
+            WHERE DATE(created_at) = DATE(?, '-1 day')
+        """, (today,))
+        yesterday_new = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT COUNT(DISTINCT e.user_uuid) FROM events e
+            JOIN users u ON e.user_uuid = u.uuid
+            WHERE DATE(u.created_at) = DATE(?, '-1 day')
+              AND DATE(e.created_at) = ?
+        """, (today, today))
+        d1_returned = cursor.fetchone()[0]
+
+        d1_retention = round((d1_returned / yesterday_new * 100), 1) if yesterday_new > 0 else 0
+
+        return {
+            "summary": {
+                "total_users": total_users,
+                "total_items": total_items,
+                "total_likes": total_likes,
+                "total_skips": total_skips,
+                "hit_rate": hit_rate,
+            },
+            "daily": daily,
+            "sources": sources,
+            "top_tags": top_tags,
+            "retention": {
+                "d1": d1_retention,
+            }
+        }
 
 
 if __name__ == "__main__":

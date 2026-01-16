@@ -1,155 +1,7 @@
-# VibeCatch
+# Shovel Development System v7
 
-> Shovel Development System v7 - Python/FastAPI API Server
-
----
-
-## 📌 프로젝트 개요
-
-| 항목 | 값 |
-|------|-----|
-| **프로젝트명** | VibeCatch |
-| **한 줄 설명** | 바이브 코더를 위한 HN/Reddit/GitHub 트렌드 수집기 (AI 요약 + 선호도 학습) |
-| **타입** | Python/FastAPI API Server |
-| **환경** | Windows (PowerShell/Git Bash) |
-| **복잡도** | 단순 (Flat 구조) |
-| **PRD** | docs/PRD.md (v1.1 Approved) |
-
----
-
-## 🔧 기술 스택
-
-| 영역 | 기술 | 버전 |
-|------|------|------|
-| Runtime | Python | 3.11+ |
-| Framework | FastAPI | latest |
-| Template | Jinja2 | (FastAPI 내장) |
-| Database | SQLite | 3.x |
-| AI | Claude API (Anthropic) | latest |
-| Scheduler | APScheduler | 3.x |
-| Testing | pytest | latest |
-
----
-
-## 🛠️ 필수 명령어
-
-```bash
-# 개발 서버
-uvicorn main:app --reload
-
-# Gate (완료 정의)
-bash scripts/gate.sh
-
-# 개별 검증
-ruff check .           # lint
-pytest                 # test
-python -m py_compile main.py  # syntax check
-
-# 수동 수집 (디버깅)
-curl -X POST http://localhost:8000/collect
-```
-
----
-
-## 🏗️ 프로젝트 구조
-
-```
-vibecatch/
-├── main.py              # FastAPI 앱 + 스케줄러
-├── collectors/
-│   ├── __init__.py
-│   ├── hackernews.py    # HN 수집
-│   ├── reddit.py        # Reddit 수집
-│   └── github.py        # GitHub Trending 수집
-├── summarizer.py        # Claude API 요약 + 태그 추출
-├── templates/
-│   ├── index.html       # 카드 리뷰 UI
-│   └── liked.html       # 좋아요 목록
-├── static/
-│   └── style.css
-├── vibecatch.db         # SQLite (자동 생성)
-├── requirements.txt
-├── .env.example
-├── pytest.ini
-└── tests/
-    └── test_*.py
-```
-
----
-
-## 📡 API 엔드포인트
-
-| Method | Endpoint | 설명 |
-|--------|----------|------|
-| GET | `/` | 리뷰할 카드 목록 (선호도순 정렬) |
-| POST | `/review/{id}` | 피드백 `{action: 'like' \| 'skip'}` |
-| GET | `/liked` | 좋아요 목록 |
-| GET | `/stats` | 태그별 선호도 현황 |
-| POST | `/collect` | 수동 수집 트리거 (디버깅용) |
-
----
-
-## 🗄️ DB 스키마
-
-```sql
--- 수집된 콘텐츠
-CREATE TABLE items (
-    id INTEGER PRIMARY KEY,
-    source TEXT NOT NULL,        -- 'hn', 'reddit', 'github'
-    external_id TEXT NOT NULL,
-    title TEXT NOT NULL,
-    url TEXT,
-    summary TEXT,                -- Claude 요약
-    tags TEXT,                   -- JSON: ["ai", "vibe-code"]
-    status TEXT DEFAULT 'new',   -- 'new', 'liked', 'skipped'
-    collected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    reviewed_at DATETIME,
-    UNIQUE(source, external_id)
-);
-
--- 태그별 선호도 점수
-CREATE TABLE preferences (
-    tag TEXT PRIMARY KEY,
-    score INTEGER DEFAULT 0,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-```
-
----
-
-## ⚠️ VibeCatch 프로젝트 규칙
-
-### 🚫 NEVER (VibeCatch 전용)
-
-```
-NEVER Claude API 호출 시 rate limit 미처리
-NEVER 외부 API 응답 미검증 (HN, Reddit, GitHub)
-NEVER 수집 실패 시 전체 중단 (개별 소스 실패 허용)
-NEVER .env 파일 커밋 (.env.example만 허용)
-NEVER SQLite 동시 쓰기 이슈 무시
-```
-
-### ✅ ALWAYS (VibeCatch 전용)
-
-```
-ALWAYS 외부 API 호출 시 try-except 처리
-ALWAYS Claude 요약 실패 시 원본 제목 유지
-ALWAYS 수집 결과 로깅 (성공/실패 개수)
-ALWAYS 중복 체크 (source + external_id)
-ALWAYS 태그 추출 실패 시 빈 배열 [] 반환
-```
-
----
-
-## 🎯 MVP 기능 (F001-F005)
-
-| ID | 기능 | 상태 |
-|----|------|------|
-| F001 | 콘텐츠 수집 (HN/Reddit/GitHub) | ⬜ Pending |
-| F002 | AI 요약 (Claude API) | ⬜ Pending |
-| F003 | 카드 리뷰 UI | ⬜ Pending |
-| F004 | 선호도 학습 (태그 점수) | ⬜ Pending |
-| F005 | 우선순위 정렬 | ⬜ Pending |
+> 이 파일은 템플릿입니다. `/start` 실행 시 프로젝트에 맞게 자동 생성됩니다.
+> **v7 신규**: 에러 자동 기록 + 학습 시스템, 서버 검증
 
 ---
 
@@ -531,6 +383,66 @@ Phase 4: 검증
 소스: Google Fonts
 </use_interesting_fonts>
 ```
+
+---
+
+## 🎨 디자인 가드레일 (AI 패턴 탈피) 🆕
+
+> **목적**: AI가 만든 UI가 "AI가 만든 티"가 나지 않도록
+> **커맨드**: `/design` (자동 트리거 또는 수동 실행)
+
+### 자동 트리거 키워드
+
+다음 키워드 감지 시 `/design` 자동 실행:
+- 랜딩페이지, landing page, 대시보드, dashboard
+- UI, 화면, 페이지, 컴포넌트, component
+- 디자인, design, 레이아웃, layout
+
+### 🚫 AI 패턴 절대 금지
+
+| 영역 | 금지 패턴 | 대안 |
+|------|----------|------|
+| **폰트** | Inter, Roboto 단독 | Space Grotesk, Neue Montreal, Ogg |
+| **색상** | 보라/인디고 그라데이션 (`bg-indigo-500`) | 따뜻한 대지색, 차분한 블루/그린 |
+| **레이아웃** | 3열 대칭 카드 그리드 | 비대칭(60/40), 매거진 스타일 |
+| **모서리** | 균일한 12px radius | 4px(input), 8px(button), 16px(card) |
+| **그림자** | 0.1 불투명도 everywhere | 의도적 그림자 또는 없음 |
+
+### ✅ 필수 실행
+
+```
+✅ 디자인 요청 → /design 실행 → 개선된 프롬프트 생성
+✅ 폰트 미지정 → Space Grotesk 또는 대안 제안
+✅ 색상 미지정 → 따뜻한 대지색/차분한 블루그린 제안
+✅ 레이아웃 미지정 → 비대칭(60/40) 또는 매거진 스타일 제안
+```
+
+### 워크플로우
+
+```
+"랜딩페이지 만들어줘"
+         ↓
+    /design 자동 실행
+         ↓
+    AI 패턴 위험 체크
+         ↓
+    개선된 프롬프트 생성
+         ↓
+    v0/Lovable/Cursor에 적용
+```
+
+### 추천 컬러 팔레트 (빠른 참조)
+
+**따뜻한 대지색**: `#8B6914` + `#D4C4B0` + `#F5F0E8`
+**차분한 블루/그린**: `#3D5A5B` + `#7C9A92` + `#F7F5F0`
+**기업용 따뜻함**: `#2C3E50` + `#E74C3C` + `#FDFBF7`
+**모던 다크**: `#0A1628` + `#16213E` + `#E94560`
+
+### 레퍼런스 사이트
+
+- **웹앱**: linear.app, figma.com, equals.com
+- **랜딩**: gumroad.com, adaline.ai
+- **브루탈리스트**: balenciaga.com, studiobrot.de
 
 ---
 

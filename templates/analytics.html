@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeCatch - Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .analytics-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .metric-card.positive .metric-value { color: #10b981; }
+        .metric-card.negative .metric-value { color: #ef4444; }
+        .metric-card.warning .metric-value { color: #f59e0b; }
+
+        .section {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+
+        .table th, .table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .table th {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .table td {
+            color: var(--text-primary);
+        }
+
+        .source-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .source-card {
+            text-align: center;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+        }
+
+        .source-name {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        .source-stats {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .tag-item {
+            background: var(--bg-secondary);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+
+        .tag-score {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+
+        .decision-box {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .decision-box.positive {
+            background: #d1fae5;
+            border-color: #10b981;
+        }
+
+        .decision-box.negative {
+            background: #fee2e2;
+            border-color: #ef4444;
+        }
+
+        .decision-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .nav-link.analytics {
+            background: var(--primary-color);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>VibeCatch</h1>
+            <p class="subtitle">Analytics Dashboard</p>
+            <nav class="nav">
+                <a href="/" class="nav-link">리뷰</a>
+                <a href="/liked" class="nav-link">좋아요</a>
+                <a href="/stats" class="nav-link">통계</a>
+                <a href="/analytics" class="nav-link active">분석</a>
+            </nav>
+        </header>
+
+        <div class="analytics-container">
+            <!-- Summary Metrics -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value">{{ summary.total_users }}</div>
+                    <div class="metric-label">총 유저</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{{ summary.total_items }}</div>
+                    <div class="metric-label">총 아이템</div>
+                </div>
+                <div class="metric-card positive">
+                    <div class="metric-value">{{ summary.total_likes }}</div>
+                    <div class="metric-label">총 좋아요</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">{{ summary.total_skips }}</div>
+                    <div class="metric-label">총 스킵</div>
+                </div>
+                <div class="metric-card {% if summary.hit_rate >= 50 %}positive{% elif summary.hit_rate < 30 %}negative{% else %}warning{% endif %}">
+                    <div class="metric-value">{{ summary.hit_rate }}%</div>
+                    <div class="metric-label">적중률</div>
+                </div>
+                <div class="metric-card {% if retention.d1 >= 30 %}positive{% elif retention.d1 < 10 %}negative{% else %}warning{% endif %}">
+                    <div class="metric-value">{{ retention.d1 }}%</div>
+                    <div class="metric-label">D1 리텐션</div>
+                </div>
+            </div>
+
+            <!-- PM Decision Box -->
+            <div class="decision-box {% if summary.hit_rate >= 50 %}positive{% elif summary.hit_rate < 30 %}negative{% endif %}">
+                <div class="decision-title">PM 인사이트</div>
+                {% if summary.hit_rate >= 50 %}
+                    추천 알고리즘이 잘 작동 중! 현재 방향 유지.
+                {% elif summary.hit_rate >= 30 %}
+                    적중률 개선 필요. 태그 추출 또는 정렬 로직 검토.
+                {% else %}
+                    적중률 심각하게 낮음! 사용자 피드백 수집 필요.
+                {% endif %}
+            </div>
+
+            <!-- Daily Stats -->
+            <section class="section">
+                <h2 class="section-title">일별 통계 (최근 7일)</h2>
+                {% if daily %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>날짜</th>
+                            <th>유저</th>
+                            <th>페이지뷰</th>
+                            <th>수집</th>
+                            <th>좋아요</th>
+                            <th>스킵</th>
+                            <th>적중률</th>
+                            <th>Rate Limit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for day in daily %}
+                        <tr>
+                            <td>{{ day.date }}</td>
+                            <td>{{ day.users }}</td>
+                            <td>{{ day.pageviews }}</td>
+                            <td>{{ day.collects }}</td>
+                            <td>{{ day.likes }}</td>
+                            <td>{{ day.skips }}</td>
+                            <td>{{ day.hit_rate }}%</td>
+                            <td>{{ day.rate_limit_hits }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p>아직 데이터가 없습니다.</p>
+                {% endif %}
+            </section>
+
+            <!-- Source Preference -->
+            <section class="section">
+                <h2 class="section-title">소스별 선호도</h2>
+                <div class="source-grid">
+                    {% for source, stats in sources.items() %}
+                    <div class="source-card">
+                        <div class="source-name">{{ source }}</div>
+                        <div class="source-stats">
+                            좋아요: {{ stats.likes }}<br>
+                            스킵: {{ stats.skips }}<br>
+                            적중률: {{ stats.hit_rate }}%
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% if sources %}
+                <div class="decision-box">
+                    <div class="decision-title">CTO 인사이트</div>
+                    {% set best_source = sources | dictsort(by='value', reverse=true) | first %}
+                    가장 인기 있는 소스 집중. 비인기 소스는 수집 빈도 줄여서 API 비용 절감 고려.
+                </div>
+                {% endif %}
+            </section>
+
+            <!-- Top Tags -->
+            <section class="section">
+                <h2 class="section-title">인기 태그 TOP 10</h2>
+                {% if top_tags %}
+                <div class="tag-list">
+                    {% for tag in top_tags %}
+                    <div class="tag-item">
+                        {{ tag.tag }}
+                        <span class="tag-score">+{{ tag.score }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p>아직 데이터가 없습니다.</p>
+                {% endif %}
+            </section>
+
+            <!-- API Link -->
+            <section class="section">
+                <h2 class="section-title">API 접근</h2>
+                <p>JSON 데이터: <a href="/analytics/api" target="_blank">/analytics/api</a></p>
+                <p style="font-size: 0.875rem; color: var(--text-secondary);">
+                    외부 도구나 커스텀 대시보드에서 사용 가능
+                </p>
+            </section>
+        </div>
+    </div>
+</body>
+</html>

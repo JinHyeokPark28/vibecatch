@@ -653,6 +653,62 @@ pnpm lint && pnpm test && pnpm build"
 
 ---
 
+#### `/design` - AI 패턴 탈피 가이드 🆕
+
+**언제**:
+- UI/디자인 작업 시 (자동 트리거)
+- 랜딩페이지, 대시보드, 컴포넌트 제작
+
+**왜**:
+- AI가 만든 UI가 "뻔한 느낌" 방지
+- Inter/Roboto, 보라 그라데이션, 3열 카드 그리드 탈피
+
+**트리거 키워드** (자동 실행):
+- 랜딩페이지, landing page, 대시보드, dashboard
+- UI, 화면, 페이지, 컴포넌트, component
+- 디자인, design, 레이아웃, layout
+
+**CLI**:
+```bash
+/design
+```
+
+**동작**:
+1. 요청 분석 (타입, 플랫폼)
+2. AI 패턴 위험 체크
+3. 개선된 프롬프트 생성
+
+**출력 예시**:
+```markdown
+🎨 디자인 검사 완료
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 요청: "랜딩페이지 만들어줘"
+
+⚠️ 감지된 AI 패턴 위험:
+  • 폰트 미지정 → Inter 기본값 위험
+  • 색상 미지정 → 보라 그라데이션 위험
+  • 레이아웃 미지정 → 3열 카드 그리드 위험
+
+✅ 개선된 프롬프트:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Build a SaaS landing page.
+Font: Space Grotesk + Lato
+Colors: #2C3E50 + #E74C3C + #FDFBF7
+Layout: Asymmetric (60/40)
+Avoid: Inter, purple gradients, uniform grids
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📎 v0/Lovable/Cursor에 복사해서 사용
+```
+
+**추천 대안**:
+- **폰트**: Space Grotesk, Neue Montreal, Ogg, Instrument Serif
+- **색상**: 따뜻한 대지색, 차분한 블루/그린, 기업용 따뜻함
+- **레이아웃**: 비대칭(60/40), 매거진 스타일, 단일 열 내러티브
+
+---
+
 ### 설정 확인 시
 
 #### `/ssot-check` - SSOT 위반 검사
@@ -810,6 +866,7 @@ PRD를 확인하고 구현 계획을 세워줘."
 | `/pm` | 우선순위 결정 | 필요 시 |
 | `/interview` | 스펙 불명확 | 필요 시 |
 | `/ssot-check` | 설정 변경 후 | 필요 시 |
+| `/design` | UI/디자인 작업 시 | 자동 트리거 🆕 |
 
 ### v7 신규 명령어 🆕
 
