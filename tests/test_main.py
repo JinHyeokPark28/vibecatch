@@ -213,6 +213,31 @@ class TestItemDetail:
         assert "not found" in data["error"].lower()
 
 
+class TestStatsRoute:
+    """Tests for GET /stats endpoint."""
+
+    def test_stats_page_loads(self, client):
+        """Test stats page loads successfully."""
+        response = client.get("/stats")
+        assert response.status_code == 200
+        assert "VibeCatch" in response.text
+        assert "선호도" in response.text
+
+    def test_stats_empty_state(self, client):
+        """Test stats shows empty state when no preferences."""
+        response = client.get("/stats")
+        assert response.status_code == 200
+        assert "아직 선호도 데이터가 없습니다" in response.text
+
+    def test_stats_has_nav(self, client):
+        """Test stats page has navigation."""
+        response = client.get("/stats")
+        assert response.status_code == 200
+        assert 'href="/"' in response.text
+        assert 'href="/liked"' in response.text
+        assert 'href="/stats"' in response.text
+
+
 class TestPrioritySort:
     """Tests for F005 priority sorting."""
 

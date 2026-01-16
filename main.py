@@ -236,8 +236,33 @@ async def liked_items(request: Request):
     )
 
 
-# Routes to be added:
-# - GET /stats : Preference statistics
+@app.get("/stats", response_class=HTMLResponse)
+async def stats(request: Request):
+    """
+    Preference statistics.
+
+    Shows tag scores based on like/skip history.
+    """
+    preferences = get_preferences()
+
+    # Sort by score (highest first)
+    sorted_prefs = sorted(preferences.items(), key=lambda x: x[1], reverse=True)
+
+    # Separate positive, negative, neutral
+    positive_tags = [(tag, score) for tag, score in sorted_prefs if score > 0]
+    negative_tags = [(tag, score) for tag, score in sorted_prefs if score < 0]
+    neutral_tags = [(tag, score) for tag, score in sorted_prefs if score == 0]
+
+    return templates.TemplateResponse(
+        "stats.html",
+        {
+            "request": request,
+            "positive_tags": positive_tags,
+            "negative_tags": negative_tags,
+            "neutral_tags": neutral_tags,
+            "total_tags": len(preferences),
+        }
+    )
 
 
 if __name__ == "__main__":

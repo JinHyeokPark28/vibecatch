@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeCatch - Stats</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>VibeCatch</h1>
+            <p class="subtitle">{{ total_tags }}개 태그 선호도</p>
+            <nav class="nav">
+                <a href="/" class="nav-link">리뷰</a>
+                <a href="/liked" class="nav-link">좋아요</a>
+                <a href="/stats" class="nav-link active">통계</a>
+            </nav>
+        </header>
+
+        <div class="stats-container">
+            {% if positive_tags %}
+            <section class="stats-section">
+                <h2 class="stats-title stats-title-positive">선호 태그</h2>
+                <div class="stats-list">
+                    {% for tag, score in positive_tags %}
+                    <div class="stats-item stats-item-positive">
+                        <span class="stats-tag">{{ tag }}</span>
+                        <span class="stats-score">+{{ score }}</span>
+                        <div class="stats-bar">
+                            <div class="stats-bar-fill stats-bar-positive" style="width: {{ [score * 10, 100] | min }}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            {% if negative_tags %}
+            <section class="stats-section">
+                <h2 class="stats-title stats-title-negative">비선호 태그</h2>
+                <div class="stats-list">
+                    {% for tag, score in negative_tags %}
+                    <div class="stats-item stats-item-negative">
+                        <span class="stats-tag">{{ tag }}</span>
+                        <span class="stats-score">{{ score }}</span>
+                        <div class="stats-bar">
+                            <div class="stats-bar-fill stats-bar-negative" style="width: {{ [score | abs * 10, 100] | min }}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            {% if neutral_tags %}
+            <section class="stats-section">
+                <h2 class="stats-title stats-title-neutral">중립 태그</h2>
+                <div class="stats-list">
+                    {% for tag, score in neutral_tags %}
+                    <div class="stats-item stats-item-neutral">
+                        <span class="stats-tag">{{ tag }}</span>
+                        <span class="stats-score">0</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            {% if not positive_tags and not negative_tags and not neutral_tags %}
+            <div class="empty-state">
+                <p>아직 선호도 데이터가 없습니다</p>
+                <p class="empty-hint"><a href="/">리뷰 페이지</a>에서 좋아요/건너뛰기로 선호도를 학습시키세요</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
