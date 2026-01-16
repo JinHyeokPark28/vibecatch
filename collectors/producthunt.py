@@ -69,7 +69,7 @@ def extract_id_from_url(url: str) -> str:
 
 async def fetch_producthunt_launches(count: int = PH_FETCH_COUNT) -> list[ProductHuntItem]:
     """
-    Fetch latest launches from Product Hunt RSS feed.
+    Fetch latest launches from Product Hunt Atom feed.
 
     Args:
         count: Number of items to fetch
@@ -78,6 +78,9 @@ async def fetch_producthunt_launches(count: int = PH_FETCH_COUNT) -> list[Produc
         List of ProductHuntItem objects
     """
     logger.info(f"Fetching up to {count} launches from Product Hunt...")
+
+    # Atom namespace
+    ATOM_NS = {'atom': 'http://www.w3.org/2005/Atom'}
 
     async with httpx.AsyncClient() as client:
         try:
@@ -88,37 +91,53 @@ async def fetch_producthunt_launches(count: int = PH_FETCH_COUNT) -> list[Produc
             )
             response.raise_for_status()
 
-            # Parse RSS XML
+            # Parse Atom XML
             root = ET.fromstring(response.text)
 
             items: list[ProductHuntItem] = []
 
-            # Find all items in RSS feed
-            for item in root.findall('.//item'):
+            # Find all entries in Atom feed (with namespace)
+            entries = root.findall('atom:entry', ATOM_NS)
+            if not entries:
+                # Try without namespace (fallback)
+                entries = root.findall('.//entry')
+
+            for entry in entries:
                 if len(items) >= count:
                     break
 
-                title_elem = item.find('title')
-                link_elem = item.find('link')
-                desc_elem = item.find('description')
+                # Get title
+                title_elem = entry.find('atom:title', ATOM_NS)
+                if title_elem is None:
+                    title_elem = entry.find('title')
+
+                # Get link (href attribute)
+                link_elem = entry.find('atom:link', ATOM_NS)
+                if link_elem is None:
+                    link_elem = entry.find('link')
+
+                # Get content/description
+                content_elem = entry.find('atom:content', ATOM_NS)
+                if content_elem is None:
+                    content_elem = entry.find('content')
 
                 if title_elem is None or link_elem is None:
                     continue
 
                 title = title_elem.text or ""
-                url = link_elem.text or ""
-                description = desc_elem.text if desc_elem is not None else None
+                url = link_elem.get('href', '')
+                content = content_elem.text if content_elem is not None else None
 
-                # Extract tagline from description (usually first line)
+                # Extract tagline from content (first paragraph)
                 tagline = None
-                if description:
+                if content:
                     # Clean HTML tags
-                    clean_desc = re.sub(r'<[^>]+>', '', description)
-                    lines = clean_desc.strip().split('\n')
+                    clean_content = re.sub(r'<[^>]+>', '', content)
+                    lines = [l.strip() for l in clean_content.strip().split('\n') if l.strip()]
                     if lines:
-                        tagline = lines[0].strip()[:200]
+                        tagline = lines[0][:200]
 
-                external_id = extract_id_from_url(url)
+                external_id = extract_id_from_url(url) or title[:50]
 
                 items.append(ProductHuntItem(
                     external_id=external_id,
@@ -131,10 +150,10 @@ async def fetch_producthunt_launches(count: int = PH_FETCH_COUNT) -> list[Produc
             return items
 
         except httpx.HTTPError as e:
-            logger.warning(f"Failed to fetch Product Hunt RSS: {e}")
+            logger.warning(f"Failed to fetch Product Hunt feed: {e}")
             return []
         except ET.ParseError as e:
-            logger.warning(f"Failed to parse Product Hunt RSS: {e}")
+            logger.warning(f"Failed to parse Product Hunt feed: {e}")
             return []
 
 
