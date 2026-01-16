@@ -19,6 +19,11 @@ logger = logging.getLogger(__name__)
 
 DATABASE_PATH = os.getenv("DATABASE_PATH", "vibecatch.db")
 
+# Ensure directory exists for database file
+_db_dir = os.path.dirname(DATABASE_PATH)
+if _db_dir and not os.path.exists(_db_dir):
+    os.makedirs(_db_dir, exist_ok=True)
+
 # Rate limit settings
 RATE_LIMIT_FREE_COLLECT = 3  # per day
 RATE_LIMIT_FREE_SUMMARIZE = 30  # per day

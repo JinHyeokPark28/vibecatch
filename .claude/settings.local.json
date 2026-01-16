@@ -15,7 +15,8 @@
       "Bash(pip-audit:*)",
       "Bash(pip check:*)",
       "Bash(git remote add:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(railway status:*)"
     ]
   }
 }
