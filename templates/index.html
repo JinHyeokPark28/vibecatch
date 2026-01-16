@@ -177,7 +177,8 @@
                     const data = await response.json();
                     const hn = data.collected.hn;
                     const reddit = data.collected.reddit;
-                    alert(`수집 완료!\nHN: ${hn.inserted}개 추가\nReddit: ${reddit.inserted}개 추가\n요약: ${data.summarized.summarized}개`);
+                    const github = data.collected.github;
+                    alert(`수집 완료!\nHN: ${hn.inserted}개 추가\nReddit: ${reddit.inserted}개 추가\nGitHub: ${github.inserted}개 추가\n요약: ${data.summarized.summarized}개`);
                     location.reload();
                 } else {
                     alert('수집 실패');
