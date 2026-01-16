@@ -1,0 +1,31 @@
+/* VibeCatch Styles */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    background-color: #0d1117;
+    color: #c9d1d9;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+h1 {
+    color: #58a6ff;
+    margin-bottom: 0.5rem;
+}
+
+.status {
+    color: #8b949e;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+}

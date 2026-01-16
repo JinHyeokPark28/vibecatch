@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(start)",
+      "Bash(dir /b)",
+      "Skill(implement)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(ruff check:*)",
+      "Bash(pytest:*)",
+      "Bash(git init:*)"
+    ]
+  }
+}
