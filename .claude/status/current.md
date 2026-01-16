@@ -10,14 +10,14 @@
 |-----|-------|
 | Project | VibeCatch |
 | Type | Python/FastAPI API Server |
-| Status | New (Pre-development) |
+| Status | In Development |
 | PRD | docs/PRD.md (v1.1 Approved) |
 
 ---
 
 ## Current State
 
-**Phase**: F001 Handoff Complete
+**Phase**: F002 Handoff Complete
 **Next Action**: /clear -> /verify -> commit
 
 ---
@@ -28,21 +28,35 @@
 - [x] PRD review (v1.1 approved)
 - [x] Project type detection (FastAPI + SQLite)
 - [x] Architecture decision (Flat structure)
-- [x] F001 Step 0: Project structure (requirements.txt, main.py, database.py)
-- [x] F001 Step 1: HN collector (collectors/hackernews.py)
-- [x] F001 Step 2: DB save logic (save_items, collect_and_save)
-- [x] F001 Step 3: Tests + Gate (7 tests passed)
+- [x] **F001 HN Collector** - COMMITTED (377ff84)
+  - collectors/hackernews.py
+  - database.py (init_db, save_items)
+  - 7 tests passed
+- [x] **F002 AI Summarizer** - Gate PASS
+  - summarizer.py (Claude API)
+  - database.py (update_item_summary, get_items_without_summary)
+  - main.py (POST /collect)
+  - 22 tests passed
 
 ---
 
 ## Next Tasks
 
-1. [ ] Create requirements.txt
-2. [ ] Create main.py (FastAPI app)
-3. [ ] Create collectors/ module
-4. [ ] Create summarizer.py
-5. [ ] Create templates/ (Jinja2)
-6. [ ] Create .env.example
+1. [ ] /verify F002 (Context Bias-free)
+2. [ ] Commit F002
+3. [ ] /plan F003 (카드 리뷰 UI)
+
+---
+
+## MVP Progress
+
+| ID | Feature | Status |
+|----|---------|--------|
+| F001 | 콘텐츠 수집 (HN) | ✅ Done |
+| F002 | AI 요약 | ✅ Done |
+| F003 | 카드 리뷰 UI | ⬜ Pending |
+| F004 | 선호도 학습 | ⬜ Pending |
+| F005 | 우선순위 정렬 | ⬜ Pending |
 
 ---
 
@@ -53,6 +67,7 @@
 | 2026-01-16 | Python sorting for tags | ADR-001: MVP simplicity, <1000 items |
 | 2026-01-16 | SQLite (not PostgreSQL) | Solo tool, file-based is enough |
 | 2026-01-16 | Jinja2 (not React/Next) | Server-rendered, no SPA needed |
+| 2026-01-16 | KNOWN_TAGS whitelist | 일관된 태그 체계, PRD 기반 |
 
 ---
 
@@ -66,3 +81,4 @@ None currently.
 
 - Estimated API cost: ~$22/month
 - Refactoring trigger: 1000+ items -> normalize tags table
+- ANTHROPIC_API_KEY 필수 (요약 기능)

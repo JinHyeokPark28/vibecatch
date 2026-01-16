@@ -5,11 +5,11 @@
 | Key | Value |
 |-----|-------|
 | Created | 2026-01-16 |
-| Task | F001 HN 수집 기능 |
-| Status | LOCKED |
+| Task | F002 AI 요약 |
+| Status | 🔒 LOCKED |
 | ToT Score | 90 |
 | Judge Score | 94% |
-| PRD Reference | F001 콘텐츠 수집 |
+| PRD Reference | F002 Claude API로 제목+내용 요약 + 태그 추출 |
 
 ---
 
@@ -17,130 +17,142 @@
 
 ### In Scope
 
-- HN Top Stories 수집 (상위 30개)
-- DB 저장 (items 테이블)
-- 중복 체크 (source + external_id)
-- 에러 처리 및 로깅
-- 기본 테스트
+- summarizer.py 생성 (Claude API 호출)
+- 태그 추출 (ai, vibe-code, solo, saas, startup 등)
+- database.py에 update_item_summary() 함수 추가
+- /collect 라우트 구현 (수집 + 요약 통합)
+- 테스트 작성
 
 ### Out of Scope (BACKLOG)
 
 - Reddit 수집 (별도 계획)
 - GitHub 수집 (별도 계획)
-- Claude 요약 (F002)
 - 스케줄러 설정 (전체 통합 시)
+- 카드 리뷰 UI (F003)
 
 ---
 
 ## Step List
 
-### Step 0: 프로젝트 기본 구조 생성 (30min)
+### Step 1: summarizer.py 생성 (30min)
 
-**목표**: FastAPI 앱 뼈대 + DB 초기화
+**목표**: Claude API를 사용한 요약 + 태그 추출
 
 **작업 내용**:
-1. `requirements.txt` 생성
-   - fastapi, uvicorn, httpx, jinja2, python-multipart
-   - apscheduler, anthropic, pytest, ruff
-2. `main.py` 생성 (FastAPI 앱 초기화)
-3. `database.py` 생성 (SQLite 연결 + 테이블 생성)
-4. `.env.example` 생성
-5. `collectors/__init__.py` 생성
+1. `summarizer.py` 생성
+2. `summarize_item(title, url)` 함수
+   - Claude API 호출 (anthropic 패키지)
+   - 프롬프트: 2-3문장 요약 + 태그 추출
+   - 반환: `{summary: str, tags: list[str]}`
+3. Rate limit 처리 (try-except)
+4. 요약 실패 시 원본 제목 유지 (ALWAYS 규칙)
 
 **검증**:
 ```bash
-python -c "import main; print('OK')"
-python -c "from database import init_db; init_db(); print('OK')"
+python -m py_compile summarizer.py
 ```
 
 **파일 목록**:
-- [ ] requirements.txt (신규)
-- [ ] main.py (신규)
-- [ ] database.py (신규)
-- [ ] .env.example (신규)
-- [ ] collectors/__init__.py (신규)
+- [ ] summarizer.py (신규)
 
 ---
 
-### Step 1: HN 수집기 구현 (45min)
+### Step 2: database.py update 함수 추가 (15min)
 
-**목표**: Hacker News Top Stories 수집 함수
+**목표**: 요약 결과 DB 저장
 
 **작업 내용**:
-1. `collectors/hackernews.py` 생성
-2. HN API 호출 함수 (`fetch_top_stories`)
-   - Top stories ID 목록 가져오기
-   - 상위 30개 item 상세 정보 가져오기
-3. 데이터 정규화 (title, url, external_id)
-4. 에러 처리 (try-except + 로깅)
-
-**HN API Endpoints**:
-```
-Top Stories: https://hacker-news.firebaseio.com/v0/topstories.json
-Item Detail: https://hacker-news.firebaseio.com/v0/item/{id}.json
-```
+1. `update_item_summary(item_id, summary, tags)` 함수 추가
+2. summary, tags 컬럼 업데이트
 
 **검증**:
 ```bash
-python -c "from collectors.hackernews import fetch_top_stories; import asyncio; items = asyncio.run(fetch_top_stories()); print(f'Fetched {len(items)} items')"
+pytest tests/test_database.py -v
 ```
 
 **파일 목록**:
-- [ ] collectors/hackernews.py (신규)
+- [ ] database.py (수정)
+- [ ] tests/test_database.py (신규)
 
 ---
 
-### Step 2: DB 저장 로직 구현 (30min)
+### Step 3: summarize_new_items 배치 함수 (20min)
 
-**목표**: 수집된 아이템 DB 저장 (중복 체크)
+**목표**: 미요약 아이템 일괄 처리
 
 **작업 내용**:
-1. `database.py`에 `save_items()` 함수 추가
-2. INSERT OR IGNORE로 중복 처리
-3. 저장 결과 로깅 (신규/중복 개수)
-4. `collectors/hackernews.py`에 저장 로직 연결
+1. `summarize_new_items(limit=10)` 함수
+   - summary IS NULL인 아이템 조회
+   - 각각 summarize_item() 호출
+   - DB 업데이트
+2. 결과 반환: `{total, summarized, failed}`
 
 **검증**:
 ```bash
-python -c "from collectors.hackernews import collect_and_save; import asyncio; result = asyncio.run(collect_and_save()); print(result)"
+python -c "from summarizer import summarize_new_items; import asyncio; print(asyncio.run(summarize_new_items(1)))"
 ```
 
 **파일 목록**:
-- [ ] database.py (수정 - save_items 추가)
-- [ ] collectors/hackernews.py (수정 - collect_and_save 추가)
+- [ ] summarizer.py (수정)
 
 ---
 
-### Step 3: 테스트 및 Gate 검증 (30min)
+### Step 4: /collect 라우트 구현 (20min)
 
-**목표**: 테스트 작성 + Gate PASS
+**목표**: 수집 + 요약 통합 엔드포인트
 
 **작업 내용**:
-1. `tests/` 폴더 생성
-2. `tests/test_hackernews.py` 작성
-   - fetch_top_stories 테스트 (mock 사용)
-   - save_items 테스트
-3. `pytest.ini` 설정
-4. ruff 린트 수정
-5. Gate 실행
+1. `main.py`에 POST /collect 라우트 추가
+2. collect_and_save() 호출 (HN 수집)
+3. summarize_new_items() 호출
+4. 결과 반환: `{collected, summarized}`
+
+**검증**:
+```bash
+curl -X POST http://localhost:8000/collect
+```
+
+**파일 목록**:
+- [ ] main.py (수정)
+
+---
+
+### Step 5: 테스트 작성 (20min)
+
+**목표**: 요약 기능 테스트
+
+**작업 내용**:
+1. `tests/test_summarizer.py` 생성
+2. Mock Claude API 응답
+3. 태그 추출 검증
+4. 에러 핸들링 검증
 
 **테스트 케이스**:
-- [ ] fetch_top_stories: 정상 응답 처리
-- [ ] fetch_top_stories: 네트워크 에러 처리
-- [ ] save_items: 신규 아이템 저장
-- [ ] save_items: 중복 아이템 스킵
+- [ ] summarize_item: 정상 응답
+- [ ] summarize_item: API 에러 시 None 반환
+- [ ] update_item_summary: DB 업데이트
+- [ ] summarize_new_items: 배치 처리
+
+**검증**:
+```bash
+pytest tests/test_summarizer.py -v
+```
+
+**파일 목록**:
+- [ ] tests/test_summarizer.py (신규)
+
+---
+
+### Step 6: Gate 검증 (10min)
+
+**목표**: 전체 검증 + EVIDENCE.md
 
 **검증**:
 ```bash
 ruff check .
 pytest tests/ -v
-python -m py_compile main.py collectors/hackernews.py database.py
+python -m py_compile main.py summarizer.py database.py
 ```
-
-**파일 목록**:
-- [ ] tests/__init__.py (신규)
-- [ ] tests/test_hackernews.py (신규)
-- [ ] pytest.ini (신규)
 
 ---
 
@@ -148,12 +160,14 @@ python -m py_compile main.py collectors/hackernews.py database.py
 
 | Step | Task | Time | Files |
 |------|------|------|-------|
-| 0 | 프로젝트 기본 구조 | 30min | 5 files |
-| 1 | HN 수집기 구현 | 45min | 1 file |
-| 2 | DB 저장 로직 | 30min | 2 files |
-| 3 | 테스트 + Gate | 30min | 3 files |
+| 1 | summarizer.py 생성 | 30min | 1 file |
+| 2 | database.py update 함수 | 15min | 2 files |
+| 3 | summarize_new_items | 20min | 1 file |
+| 4 | /collect 라우트 | 20min | 1 file |
+| 5 | 테스트 작성 | 20min | 1 file |
+| 6 | Gate 검증 | 10min | - |
 
-**Total**: ~2h 15min (PRD 예상 4h의 절반 - HN만 구현)
+**Total**: ~2h (PRD 예상 2h)
 
 ---
 
@@ -161,25 +175,26 @@ python -m py_compile main.py collectors/hackernews.py database.py
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
-| HN API 일시 장애 | Low | Medium | 재시도 로직, 로깅 |
-| 네트워크 타임아웃 | Medium | Low | timeout 설정 (10s) |
-| Item 상세 요청 과다 | Low | Low | 30개 제한, 병렬 요청 |
+| Claude API Rate Limit | Medium | Medium | try-except, 재시도 로직 |
+| 태그 추출 부정확 | Medium | Low | 프롬프트 튜닝, 빈 배열 fallback |
+| API 키 누락 | Low | High | .env.example 문서화 |
 
 ---
 
 ## Scope Lock Hash
 
 ```
-SHA256: f001-hn-collector-v1-2026-01-16
+SHA256: f002-ai-summarizer-v1-2026-01-16
 ```
 
 **This plan is LOCKED. No scope changes allowed.**
 
 ---
 
-## Next Steps (After Completion)
+## ALWAYS Rules (F002)
 
-1. `/implement` - 이 계획 실행
-2. `/gate` - 검증
-3. `/plan F002` - AI 요약 기능 계획
+- ALWAYS 요약 실패 시 원본 제목 유지
+- ALWAYS 태그 추출 실패 시 빈 배열 [] 반환
+- ALWAYS Claude API 호출 시 try-except 처리
+- ALWAYS Rate limit 고려 (limit 파라미터)
 

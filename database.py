@@ -148,6 +148,55 @@ def get_items_by_status(status: str = "new", limit: int = 100) -> list[dict]:
         return [dict(row) for row in cursor.fetchall()]
 
 
+def get_items_without_summary(limit: int = 10) -> list[dict]:
+    """Get items that don't have a summary yet."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM items
+            WHERE summary IS NULL
+            ORDER BY collected_at DESC
+            LIMIT ?
+        """, (limit,))
+
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def update_item_summary(item_id: int, summary: str, tags: list[str]) -> bool:
+    """
+    Update item with summary and tags.
+
+    Args:
+        item_id: Item ID
+        summary: AI-generated summary
+        tags: List of tags
+
+    Returns:
+        True if successful, False otherwise
+    """
+    import json
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE items
+                SET summary = ?, tags = ?
+                WHERE id = ?
+            """, (summary, json.dumps(tags), item_id))
+
+            if cursor.rowcount > 0:
+                logger.info(f"Updated item {item_id} with summary")
+                return True
+            else:
+                logger.warning(f"Item {item_id} not found")
+                return False
+
+    except sqlite3.Error as e:
+        logger.error(f"Failed to update item {item_id}: {e}")
+        return False
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     init_db()
