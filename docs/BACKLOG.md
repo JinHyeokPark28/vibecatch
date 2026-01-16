@@ -49,6 +49,36 @@
 
 ---
 
+### B002: 선호도 통계 페이지 (/stats)
+
+**설명**: 태그별 선호도 점수를 시각화하는 통계 페이지
+
+**요청 배경**:
+- F004 선호도 학습 기능의 확장
+- 사용자가 자신의 선호 패턴 파악 가능
+- PRD API 목록에 GET /stats 포함됨
+
+**구현 필요 사항**:
+1. `templates/stats.html` 생성
+2. `main.py`의 `/stats` 엔드포인트 (로직 준비됨)
+3. 태그별 점수 시각화 (positive/negative/neutral 구분)
+
+**예상 구현**:
+```python
+# main.py에 추가 (로직 이미 작성됨)
+@app.get("/stats")
+async def stats(request: Request):
+    preferences = get_preferences()
+    # positive/negative/neutral 분류
+    # stats.html 렌더링
+```
+
+**우선순위**: 낮음 (MVP 이후, 편의 기능)
+
+**상태**: 대기 (F004 완료 후 진행)
+
+---
+
 ## 완료
 
 (없음)
