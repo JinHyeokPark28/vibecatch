@@ -50,10 +50,26 @@
             </nav>
         </header>
 
+        <!-- Source Filter Tabs -->
+        <div class="source-tabs">
+            <button class="source-tab active" data-filter="all" onclick="filterBySource('all', this)">
+                전체 <span class="tab-count" id="count-all">{{ total_count }}</span>
+            </button>
+            <button class="source-tab" data-filter="hn" onclick="filterBySource('hn', this)">
+                HN <span class="tab-count" id="count-hn">0</span>
+            </button>
+            <button class="source-tab" data-filter="reddit" onclick="filterBySource('reddit', this)">
+                Reddit <span class="tab-count" id="count-reddit">0</span>
+            </button>
+            <button class="source-tab" data-filter="github" onclick="filterBySource('github', this)">
+                GitHub <span class="tab-count" id="count-github">0</span>
+            </button>
+        </div>
+
         {% if items %}
         <div class="card-list">
             {% for item in items %}
-            <article class="card" data-id="{{ item.id }}">
+            <article class="card" data-id="{{ item.id }}" data-source="{{ item.source }}">
                 <div class="card-source">
                     <span class="source-badge source-{{ item.source }}">{{ item.source | upper }}</span>
                     <time class="card-time">{{ item.collected_at[:10] }}</time>
@@ -190,6 +206,55 @@
                 subtitle.textContent = `${cards.length}개 리뷰 대기`;
             }
         }
+
+        // Source filtering
+        function filterBySource(source, btn) {
+            const cards = document.querySelectorAll('.card');
+            const tabs = document.querySelectorAll('.source-tab');
+
+            // Update active tab
+            tabs.forEach(tab => tab.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Filter cards
+            let visibleCount = 0;
+            cards.forEach(card => {
+                if (source === 'all' || card.dataset.source === source) {
+                    card.style.display = '';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            // Update subtitle
+            const subtitle = document.querySelector('.subtitle');
+            if (subtitle) {
+                subtitle.textContent = `${visibleCount}개 리뷰 대기`;
+            }
+        }
+
+        // Initialize tab counts
+        function initTabCounts() {
+            const cards = document.querySelectorAll('.card');
+            const counts = { all: 0, hn: 0, reddit: 0, github: 0 };
+
+            cards.forEach(card => {
+                counts.all++;
+                const source = card.dataset.source;
+                if (counts[source] !== undefined) {
+                    counts[source]++;
+                }
+            });
+
+            Object.keys(counts).forEach(key => {
+                const el = document.getElementById(`count-${key}`);
+                if (el) el.textContent = counts[key];
+            });
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initTabCounts);
 
         async function collectItems() {
             const btn = document.querySelector('.btn-collect');

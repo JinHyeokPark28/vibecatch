@@ -63,7 +63,7 @@ async def scheduled_collect():
         hn_result = await collect_hn()
         reddit_result = await collect_reddit()
         github_result = await collect_github()
-        summary_result = await summarize_new_items(limit=10)
+        summary_result = await summarize_new_items(limit=30)
 
         logger.info(
             f"Scheduled collection complete: "
@@ -210,7 +210,7 @@ async def collect_items(request: Request):
 
     # Step 4: Summarize new items
     logger.info(f"[{user_uuid[:8]}] Starting summarization...")
-    summary_result = await summarize_new_items(limit=10)
+    summary_result = await summarize_new_items(limit=30)
 
     # v2.0: Increment rate limit after successful collection
     increment_rate_limit(user_uuid, "collect")
@@ -475,6 +475,48 @@ async def scheduler_trigger():
 # ============================================
 # ANALYTICS ENDPOINTS (v2.1)
 # ============================================
+
+@app.post("/summarize")
+async def summarize_items(request: Request):
+    """
+    Re-summarize items that don't have summaries.
+
+    Useful for items that failed initial summarization.
+    """
+    user_uuid = request.state.user_uuid
+
+    # Check rate limit
+    allowed, remaining = check_rate_limit(user_uuid, "summarize")
+    if not allowed:
+        log_event(user_uuid, "rate_limit_hit", {"action": "summarize"})
+        return JSONResponse(
+            status_code=429,
+            content={
+                "error": "Rate limit exceeded",
+                "message": "일일 요약 한도에 도달했습니다. 내일 다시 시도해주세요.",
+                "remaining": remaining,
+            }
+        )
+
+    from summarizer import summarize_new_items
+
+    logger.info(f"[{user_uuid[:8]}] Starting re-summarization...")
+    result = await summarize_new_items(limit=20)
+
+    increment_rate_limit(user_uuid, "summarize")
+    log_event(user_uuid, "summarize", {
+        "total": result.total,
+        "summarized": result.summarized,
+        "failed": result.failed,
+    })
+
+    return {
+        "success": True,
+        "total": result.total,
+        "summarized": result.summarized,
+        "failed": result.failed,
+    }
+
 
 @app.get("/analytics", response_class=HTMLResponse)
 async def analytics_dashboard(request: Request):
