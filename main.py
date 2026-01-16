@@ -10,7 +10,7 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -18,7 +18,18 @@ from pydantic import BaseModel
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from database import init_db, get_items_by_status, get_preferences, get_item_by_id, review_item
+from database import (
+    init_db,
+    get_item_by_id,
+    # v2.0: User-specific functions
+    get_or_create_user,
+    sync_items_for_user,
+    get_user_items,
+    get_user_preferences,
+    review_item_for_user,
+    check_rate_limit,
+    increment_rate_limit,
+)
 from utils import parse_tags_json
 
 # Configure logging
@@ -109,6 +120,42 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Templates
 templates = Jinja2Templates(directory="templates")
 
+# Cookie settings
+COOKIE_MAX_AGE = 365 * 24 * 60 * 60  # 1 year in seconds
+
+
+@app.middleware("http")
+async def user_middleware(request: Request, call_next):
+    """
+    v2.0: UUID middleware for user identification.
+
+    - Reads user_uuid from cookie
+    - Creates new UUID if not present
+    - Stores user_uuid in request.state
+    - Sets cookie in response
+    """
+    user_uuid = request.cookies.get("user_uuid")
+
+    # Create or get user (this also updates last_seen_at)
+    user_uuid = get_or_create_user(user_uuid)
+
+    # Store in request state for use in endpoints
+    request.state.user_uuid = user_uuid
+
+    # Call the actual endpoint
+    response = await call_next(request)
+
+    # Set cookie (refresh on every request)
+    response.set_cookie(
+        key="user_uuid",
+        value=user_uuid,
+        max_age=COOKIE_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+    )
+
+    return response
+
 
 @app.get("/health")
 async def health_check():
@@ -117,32 +164,54 @@ async def health_check():
 
 
 @app.post("/collect")
-async def collect_items():
+async def collect_items(request: Request):
     """
     Manual collection trigger.
 
     Collects items from HN, Reddit, and GitHub, then summarizes using Claude API.
+    v2.0: Rate limited per user.
     """
+    user_uuid = request.state.user_uuid
+
+    # v2.0: Check rate limit
+    allowed, remaining = check_rate_limit(user_uuid, "collect")
+    if not allowed:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "error": "Rate limit exceeded",
+                "message": "일일 수집 한도에 도달했습니다. 내일 다시 시도해주세요.",
+                "remaining": remaining,
+            }
+        )
+
     from collectors.hackernews import collect_and_save as collect_hn
     from collectors.reddit import collect_and_save as collect_reddit
     from collectors.github import collect_and_save as collect_github
     from summarizer import summarize_new_items
 
     # Step 1: Collect from HN
-    logger.info("Collecting from Hacker News...")
+    logger.info(f"[{user_uuid[:8]}] Collecting from Hacker News...")
     hn_result = await collect_hn()
 
     # Step 2: Collect from Reddit
-    logger.info("Collecting from Reddit...")
+    logger.info(f"[{user_uuid[:8]}] Collecting from Reddit...")
     reddit_result = await collect_reddit()
 
     # Step 3: Collect from GitHub
-    logger.info("Collecting from GitHub...")
+    logger.info(f"[{user_uuid[:8]}] Collecting from GitHub...")
     github_result = await collect_github()
 
     # Step 4: Summarize new items
-    logger.info("Starting summarization...")
+    logger.info(f"[{user_uuid[:8]}] Starting summarization...")
     summary_result = await summarize_new_items(limit=10)
+
+    # v2.0: Increment rate limit after successful collection
+    increment_rate_limit(user_uuid, "collect")
+
+    # v2.0: Sync new items for this user
+    synced = sync_items_for_user(user_uuid)
+    logger.info(f"[{user_uuid[:8]}] Synced {synced} items for user")
 
     return {
         "collected": {
@@ -166,6 +235,10 @@ async def collect_items():
             "total": summary_result.total,
             "summarized": summary_result.summarized,
             "failed": summary_result.failed,
+        },
+        "user": {
+            "synced": synced,
+            "remaining_collects": remaining - 1,
         }
     }
 
@@ -182,9 +255,16 @@ async def index(request: Request):
     Card review UI - displays items for review.
 
     Shows items with status='new', sorted by preference score (F005).
+    v2.0: User-specific items and preferences.
     """
-    items = get_items_by_status(status="new", limit=50)
-    preferences = get_preferences()
+    user_uuid = request.state.user_uuid
+
+    # v2.0: Sync new items for this user (in case new items were added)
+    sync_items_for_user(user_uuid)
+
+    # v2.0: Get user-specific items and preferences
+    items = get_user_items(user_uuid, status="new", limit=50)
+    preferences = get_user_preferences(user_uuid)
 
     # Parse tags JSON for each item
     for item in items:
@@ -209,19 +289,23 @@ class ReviewRequest(BaseModel):
 
 
 @app.post("/review/{item_id}")
-async def review(item_id: int, request: ReviewRequest):
+async def review(item_id: int, body: ReviewRequest, request: Request):
     """
     Review an item (like or skip).
 
     Updates item status and adjusts tag preference scores.
+    v2.0: User-specific review.
     """
-    if request.action not in ("like", "skip"):
+    if body.action not in ("like", "skip"):
         return {"success": False, "error": "Invalid action. Use 'like' or 'skip'."}
 
-    success = review_item(item_id, request.action)
+    user_uuid = request.state.user_uuid
+
+    # v2.0: Review for specific user
+    success = review_item_for_user(user_uuid, item_id, body.action)
 
     if success:
-        return {"success": True, "item_id": item_id, "action": request.action}
+        return {"success": True, "item_id": item_id, "action": body.action}
     else:
         return {"success": False, "error": "Item not found or update failed."}
 
@@ -262,8 +346,12 @@ async def liked_items(request: Request):
     Liked items list.
 
     Shows items with status='liked'.
+    v2.0: User-specific liked items.
     """
-    items = get_items_by_status(status="liked", limit=100)
+    user_uuid = request.state.user_uuid
+
+    # v2.0: Get user-specific liked items
+    items = get_user_items(user_uuid, status="liked", limit=100)
 
     # Parse tags JSON for each item
     for item in items:
@@ -285,8 +373,12 @@ async def stats(request: Request):
     Preference statistics.
 
     Shows tag scores based on like/skip history.
+    v2.0: User-specific preferences.
     """
-    preferences = get_preferences()
+    user_uuid = request.state.user_uuid
+
+    # v2.0: Get user-specific preferences
+    preferences = get_user_preferences(user_uuid)
 
     # Sort by score (highest first)
     sorted_prefs = sorted(preferences.items(), key=lambda x: x[1], reverse=True)

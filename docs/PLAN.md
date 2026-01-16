@@ -1,15 +1,13 @@
-# VibeCatch - Current Plan
+# VibeCatch v2.0 - 공개 배포 계획
 
 ## Metadata
 
 | Key | Value |
 |-----|-------|
 | Created | 2026-01-16 |
-| Task | F002 AI 요약 |
-| Status | 🔒 LOCKED |
-| ToT Score | 90 |
-| Judge Score | 94% |
-| PRD Reference | F002 Claude API로 제목+내용 요약 + 태그 추출 |
+| Task | v2.0 공개 배포 (F010, F011, F012) |
+| Status | ✅ COMPLETED |
+| PRD Reference | PRD v2.0 |
 
 ---
 
@@ -17,184 +15,275 @@
 
 ### In Scope
 
-- summarizer.py 생성 (Claude API 호출)
-- 태그 추출 (ai, vibe-code, solo, saas, startup 등)
-- database.py에 update_item_summary() 함수 추가
-- /collect 라우트 구현 (수집 + 요약 통합)
-- 테스트 작성
+- F010: UUID 시스템 (유저별 데이터 분리)
+- F011: Rate Limit (API 남용 방지)
+- F012: UI 개선 (후순위, 이번 플랜 제외)
 
-### Out of Scope (BACKLOG)
+### Out of Scope (v3.0)
 
-- Reddit 수집 (별도 계획)
-- GitHub 수집 (별도 계획)
-- 스케줄러 설정 (전체 통합 시)
-- 카드 리뷰 UI (F003)
+- F020: 로그인 연동
+- F021-24: 후원 시스템, 프리미엄 기능
+
+---
+
+## 마이그레이션 전략
+
+### 기존 → 신규 스키마
+
+```
+[기존]                    [신규]
+items (status 포함)  →    items (status 제거, 공유)
+                          user_items (유저별 상태)
+preferences (글로벌) →    preferences (유저별)
+                          users (신규)
+                          rate_limits (신규)
+```
+
+### 기존 데이터 처리
+
+1. 기존 items 데이터 → 유지 (공유 콘텐츠)
+2. 기존 status/reviewed_at → 첫 유저(본인) user_items로 이동
+3. 기존 preferences → 첫 유저 preferences로 이동
 
 ---
 
 ## Step List
 
-### Step 1: summarizer.py 생성 (30min)
+### Step 1: DB 스키마 마이그레이션 (45min)
 
-**목표**: Claude API를 사용한 요약 + 태그 추출
+**목표**: v2.0 스키마로 전환
 
 **작업 내용**:
-1. `summarizer.py` 생성
-2. `summarize_item(title, url)` 함수
-   - Claude API 호출 (anthropic 패키지)
-   - 프롬프트: 2-3문장 요약 + 태그 추출
-   - 반환: `{summary: str, tags: list[str]}`
-3. Rate limit 처리 (try-except)
-4. 요약 실패 시 원본 제목 유지 (ALWAYS 규칙)
+1. `database.py` 수정
+   - `init_db()`에 새 테이블 추가
+   - 마이그레이션 로직 (기존 데이터 보존)
+
+**신규 테이블**:
+```sql
+-- users
+CREATE TABLE users (
+    uuid TEXT PRIMARY KEY,
+    email TEXT,
+    tier TEXT DEFAULT 'free',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at DATETIME
+);
+
+-- user_items (유저별 아이템 상태)
+CREATE TABLE user_items (
+    user_uuid TEXT NOT NULL,
+    item_id INTEGER NOT NULL,
+    status TEXT DEFAULT 'new',
+    reviewed_at DATETIME,
+    PRIMARY KEY (user_uuid, item_id)
+);
+
+-- rate_limits
+CREATE TABLE rate_limits (
+    user_uuid TEXT NOT NULL,
+    date TEXT NOT NULL,
+    collect_count INTEGER DEFAULT 0,
+    PRIMARY KEY (user_uuid, date)
+);
+```
+
+**마이그레이션 순서**:
+1. 새 테이블 생성
+2. items에서 status, reviewed_at 컬럼 유지 (하위호환)
+3. preferences에 user_uuid 컬럼 추가 (기본값 'legacy')
 
 **검증**:
 ```bash
-python -m py_compile summarizer.py
+python -c "from database import init_db; init_db()"
+sqlite3 vibecatch.db ".schema"
 ```
 
-**파일 목록**:
-- [ ] summarizer.py (신규)
+**파일**:
+- [x] database.py (수정)
 
 ---
 
-### Step 2: database.py update 함수 추가 (15min)
+### Step 2: UUID 미들웨어 구현 (30min)
 
-**목표**: 요약 결과 DB 저장
+**목표**: 모든 요청에서 유저 식별
 
 **작업 내용**:
-1. `update_item_summary(item_id, summary, tags)` 함수 추가
-2. summary, tags 컬럼 업데이트
+1. `main.py`에 미들웨어 추가
+2. 쿠키에서 user_uuid 읽기/생성
+3. `get_or_create_user(uuid)` 함수
+4. Request.state에 user_uuid 저장
+
+**로직**:
+```python
+@app.middleware("http")
+async def user_middleware(request, call_next):
+    user_uuid = request.cookies.get("user_uuid")
+    if not user_uuid:
+        user_uuid = str(uuid4())
+        # DB에 저장
+    request.state.user_uuid = user_uuid
+    response = await call_next(request)
+    response.set_cookie("user_uuid", user_uuid, max_age=31536000)
+    return response
+```
+
+**검증**:
+```bash
+curl -v http://localhost:8000/ | grep Set-Cookie
+```
+
+**파일**:
+- [x] main.py (수정)
+- [x] database.py (수정 - get_or_create_user)
+
+---
+
+### Step 3: 유저별 데이터 조회 함수 (30min)
+
+**목표**: 모든 조회를 유저별로 분리
+
+**작업 내용**:
+1. `get_user_items(user_uuid, status)` - 유저별 아이템
+2. `get_user_preferences(user_uuid)` - 유저별 선호도
+3. `review_item_for_user(user_uuid, item_id, action)` - 유저별 리뷰
+4. `sync_new_items_for_user(user_uuid)` - 신규 아이템 동기화
 
 **검증**:
 ```bash
 pytest tests/test_database.py -v
 ```
 
-**파일 목록**:
-- [ ] database.py (수정)
-- [ ] tests/test_database.py (신규)
+**파일**:
+- [x] database.py (수정)
 
 ---
 
-### Step 3: summarize_new_items 배치 함수 (20min)
+### Step 4: API 엔드포인트 UUID 적용 (30min)
 
-**목표**: 미요약 아이템 일괄 처리
+**목표**: 모든 API에서 user_uuid 사용
 
 **작업 내용**:
-1. `summarize_new_items(limit=10)` 함수
-   - summary IS NULL인 아이템 조회
-   - 각각 summarize_item() 호출
-   - DB 업데이트
-2. 결과 반환: `{total, summarized, failed}`
+1. `GET /` - user_uuid로 아이템 조회
+2. `POST /review/{id}` - user_uuid로 리뷰
+3. `GET /liked` - user_uuid로 조회
+4. `GET /stats` - user_uuid로 통계
 
 **검증**:
 ```bash
-python -c "from summarizer import summarize_new_items; import asyncio; print(asyncio.run(summarize_new_items(1)))"
+pytest tests/test_main.py -v
 ```
 
-**파일 목록**:
-- [ ] summarizer.py (수정)
+**파일**:
+- [x] main.py (수정)
 
 ---
 
-### Step 4: /collect 라우트 구현 (20min)
+### Step 5: Rate Limit 구현 (30min)
 
-**목표**: 수집 + 요약 통합 엔드포인트
+**목표**: API 남용 방지
 
 **작업 내용**:
-1. `main.py`에 POST /collect 라우트 추가
-2. collect_and_save() 호출 (HN 수집)
-3. summarize_new_items() 호출
-4. 결과 반환: `{collected, summarized}`
+1. `check_rate_limit(user_uuid, action)` 함수
+2. `increment_rate_limit(user_uuid, action)` 함수
+3. `/collect`에 Rate Limit 적용
+4. 429 응답 처리
+
+**정책**:
+| Tier | 일일 수집 |
+|------|----------|
+| Free | 3회 |
+| Supporter | 무제한 |
 
 **검증**:
 ```bash
-curl -X POST http://localhost:8000/collect
+# 4번째 호출 시 429
+for i in {1..4}; do curl -X POST http://localhost:8000/collect; done
 ```
 
-**파일 목록**:
-- [ ] main.py (수정)
+**파일**:
+- [x] database.py (수정)
+- [x] main.py (수정)
 
 ---
 
-### Step 5: 테스트 작성 (20min)
+### Step 6: 테스트 업데이트 (30min)
 
-**목표**: 요약 기능 테스트
+**목표**: 모든 테스트를 v2.0에 맞게 수정
 
 **작업 내용**:
-1. `tests/test_summarizer.py` 생성
-2. Mock Claude API 응답
-3. 태그 추출 검증
-4. 에러 핸들링 검증
-
-**테스트 케이스**:
-- [ ] summarize_item: 정상 응답
-- [ ] summarize_item: API 에러 시 None 반환
-- [ ] update_item_summary: DB 업데이트
-- [ ] summarize_new_items: 배치 처리
+1. 테스트용 user_uuid fixture 추가
+2. 기존 테스트 수정 (UUID 파라미터 추가)
+3. Rate Limit 테스트 추가
+4. 마이그레이션 테스트
 
 **검증**:
 ```bash
-pytest tests/test_summarizer.py -v
+pytest tests/ -v
 ```
 
-**파일 목록**:
-- [ ] tests/test_summarizer.py (신규)
+**파일**:
+- [x] tests/test_database.py (수정)
+- [x] tests/test_main.py (수정)
 
 ---
 
-### Step 6: Gate 검증 (10min)
+### Step 7: Gate 검증 (10min)
 
-**목표**: 전체 검증 + EVIDENCE.md
+**목표**: 전체 검증 + 배포
 
 **검증**:
 ```bash
 ruff check .
 pytest tests/ -v
-python -m py_compile main.py summarizer.py database.py
+python -m py_compile main.py database.py
+```
+
+**배포**:
+```bash
+git add -A
+git commit -m "feat: v2.0 UUID system + Rate Limit"
+git push
 ```
 
 ---
 
 ## Summary
 
-| Step | Task | Time | Files |
-|------|------|------|-------|
-| 1 | summarizer.py 생성 | 30min | 1 file |
-| 2 | database.py update 함수 | 15min | 2 files |
-| 3 | summarize_new_items | 20min | 1 file |
-| 4 | /collect 라우트 | 20min | 1 file |
-| 5 | 테스트 작성 | 20min | 1 file |
-| 6 | Gate 검증 | 10min | - |
+| Step | Task | Time |
+|------|------|------|
+| 1 | DB 스키마 마이그레이션 | 45min |
+| 2 | UUID 미들웨어 | 30min |
+| 3 | 유저별 데이터 조회 | 30min |
+| 4 | API UUID 적용 | 30min |
+| 5 | Rate Limit | 30min |
+| 6 | 테스트 업데이트 | 30min |
+| 7 | Gate 검증 | 10min |
 
-**Total**: ~2h (PRD 예상 2h)
+**Total**: ~3.5h
 
 ---
 
 ## Risk & Mitigation
 
-| Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|------------|
-| Claude API Rate Limit | Medium | Medium | try-except, 재시도 로직 |
-| 태그 추출 부정확 | Medium | Low | 프롬프트 튜닝, 빈 배열 fallback |
-| API 키 누락 | Low | High | .env.example 문서화 |
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| 기존 데이터 손실 | High | 마이그레이션 시 백업, 롤백 가능 |
+| 쿠키 차단 | Medium | localStorage 폴백 (v2.1) |
+| Rate Limit 우회 | Low | IP 기반 추가 제한 (v2.1) |
 
 ---
 
-## Scope Lock Hash
+## ALWAYS Rules (v2.0)
 
-```
-SHA256: f002-ai-summarizer-v1-2026-01-16
-```
+- ALWAYS 모든 요청에서 user_uuid 확인
+- ALWAYS 쿠키 없으면 새 UUID 생성
+- ALWAYS Rate Limit 초과 시 429 반환
+- ALWAYS 기존 데이터 마이그레이션 보존
+
+---
+
+## Scope Lock
 
 **This plan is LOCKED. No scope changes allowed.**
 
----
-
-## ALWAYS Rules (F002)
-
-- ALWAYS 요약 실패 시 원본 제목 유지
-- ALWAYS 태그 추출 실패 시 빈 배열 [] 반환
-- ALWAYS Claude API 호출 시 try-except 처리
-- ALWAYS Rate limit 고려 (limit 파라미터)
-
+F012 (UI 개선)은 v2.0 완료 후 별도 플랜으로 진행.

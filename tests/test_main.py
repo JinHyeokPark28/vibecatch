@@ -302,3 +302,87 @@ class TestSchedulerEndpoints:
         data = response.json()
         # In tests, scheduler might not be running
         assert "success" in data
+
+
+# ============================================================
+# v2.0: User-specific tests
+# ============================================================
+
+
+class TestUserCookie:
+    """Tests for v2.0 user cookie middleware."""
+
+    def test_sets_user_cookie(self, client):
+        """Test that first request sets user_uuid cookie."""
+        response = client.get("/")
+        assert response.status_code == 200
+
+        # Check cookie was set
+        assert "user_uuid" in response.cookies
+
+    def test_cookie_persists(self, client):
+        """Test that same user_uuid is maintained across requests."""
+        # First request
+        response1 = client.get("/")
+        uuid1 = response1.cookies.get("user_uuid")
+
+        # Second request
+        response2 = client.get("/")
+        uuid2 = response2.cookies.get("user_uuid")
+
+        # Should be same UUID
+        assert uuid1 == uuid2
+
+
+class TestRateLimitEndpoint:
+    """Tests for v2.0 rate limiting on /collect endpoint."""
+
+    def test_collect_returns_user_info(self, client):
+        """Test collect returns user-specific info."""
+        response = client.post("/collect")
+        assert response.status_code == 200
+        data = response.json()
+
+        # v2.0: Should include user info
+        assert "user" in data
+        assert "remaining_collects" in data["user"]
+
+    def test_rate_limit_decrements(self, client):
+        """Test that rate limit decrements after collect."""
+        # First collect
+        response1 = client.post("/collect")
+        remaining1 = response1.json()["user"]["remaining_collects"]
+
+        # Second collect
+        response2 = client.post("/collect")
+        remaining2 = response2.json()["user"]["remaining_collects"]
+
+        assert remaining2 == remaining1 - 1
+
+    def test_rate_limit_blocks_after_exceeded(self, client):
+        """Test that rate limit blocks after limit exceeded."""
+        # Use up all 3 collects
+        for _ in range(3):
+            client.post("/collect")
+
+        # 4th collect should be blocked
+        response = client.post("/collect")
+
+        assert response.status_code == 429
+        data = response.json()
+        assert "Rate limit exceeded" in data["error"]
+
+
+class TestUserDataIsolation:
+    """Tests for v2.0 user data isolation."""
+
+    def test_different_users_see_own_items(self, client_with_items):
+        """Test that user only sees their own reviewed items."""
+        # Like an item
+        client_with_items.post("/review/1", json={"action": "like"})
+
+        # Check liked page
+        response = client_with_items.get("/liked")
+        assert response.status_code == 200
+        # Should have the liked item
+        assert "card-list" in response.text
