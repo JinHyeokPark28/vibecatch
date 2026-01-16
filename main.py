@@ -4,7 +4,9 @@ VibeCatch - Trend Collector for Vibe Coders
 FastAPI application for collecting and reviewing HN/Reddit/GitHub trends.
 """
 
+import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 
 import json
@@ -15,6 +17,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from pydantic import BaseModel
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 
 from database import init_db, get_items_by_status, get_preferences, get_item_by_id, review_item
 
@@ -25,18 +29,70 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Scheduler configuration
+COLLECT_INTERVAL_HOURS = int(os.getenv("COLLECT_INTERVAL_HOURS", "6"))
+SCHEDULER_ENABLED = os.getenv("SCHEDULER_ENABLED", "true").lower() == "true"
+
+# Global scheduler instance
+scheduler: AsyncIOScheduler | None = None
+
+
+async def scheduled_collect():
+    """Scheduled collection job."""
+    logger.info("Running scheduled collection...")
+    try:
+        from collectors.hackernews import collect_and_save as collect_hn
+        from collectors.reddit import collect_and_save as collect_reddit
+        from collectors.github import collect_and_save as collect_github
+        from summarizer import summarize_new_items
+
+        hn_result = await collect_hn()
+        reddit_result = await collect_reddit()
+        github_result = await collect_github()
+        summary_result = await summarize_new_items(limit=10)
+
+        logger.info(
+            f"Scheduled collection complete: "
+            f"HN={hn_result['inserted']}, "
+            f"Reddit={reddit_result['inserted']}, "
+            f"GitHub={github_result['inserted']}, "
+            f"Summarized={summary_result.summarized}"
+        )
+    except Exception as e:
+        logger.error(f"Scheduled collection failed: {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan handler."""
+    global scheduler
+
     # Startup
     logger.info("Starting VibeCatch...")
     init_db()
     logger.info("Database initialized")
 
+    # Start scheduler if enabled
+    if SCHEDULER_ENABLED:
+        scheduler = AsyncIOScheduler()
+        scheduler.add_job(
+            scheduled_collect,
+            trigger=IntervalTrigger(hours=COLLECT_INTERVAL_HOURS),
+            id="collect_job",
+            name="Collect from HN/Reddit/GitHub",
+            replace_existing=True,
+        )
+        scheduler.start()
+        logger.info(f"Scheduler started (interval: {COLLECT_INTERVAL_HOURS}h)")
+    else:
+        logger.info("Scheduler disabled (SCHEDULER_ENABLED=false)")
+
     yield
 
     # Shutdown
+    if scheduler and scheduler.running:
+        scheduler.shutdown(wait=False)
+        logger.info("Scheduler stopped")
     logger.info("Shutting down VibeCatch...")
 
 
@@ -273,6 +329,52 @@ async def stats(request: Request):
             "total_tags": len(preferences),
         }
     )
+
+
+@app.get("/scheduler/status")
+async def scheduler_status():
+    """
+    Get scheduler status.
+
+    Returns current scheduler state and next run time.
+    """
+    if not scheduler:
+        return {
+            "enabled": False,
+            "running": False,
+            "message": "Scheduler not initialized",
+        }
+
+    job = scheduler.get_job("collect_job")
+    next_run = None
+    if job and job.next_run_time:
+        next_run = job.next_run_time.isoformat()
+
+    return {
+        "enabled": SCHEDULER_ENABLED,
+        "running": scheduler.running,
+        "interval_hours": COLLECT_INTERVAL_HOURS,
+        "next_run": next_run,
+    }
+
+
+@app.post("/scheduler/trigger")
+async def scheduler_trigger():
+    """
+    Manually trigger scheduled collection.
+
+    Runs the collection job immediately without waiting for the next interval.
+    """
+    if not scheduler or not scheduler.running:
+        return {"success": False, "error": "Scheduler not running"}
+
+    # Run collection in background
+    asyncio.create_task(scheduled_collect())
+
+    return {
+        "success": True,
+        "message": "Collection triggered in background",
+    }
 
 
 if __name__ == "__main__":

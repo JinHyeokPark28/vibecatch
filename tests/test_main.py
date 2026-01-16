@@ -282,3 +282,23 @@ class TestPrioritySort:
         assert items[0]["tags"] == ["ai"]
         assert items[1]["tags"] == ["startup"]
         assert items[2]["tags"] == ["web"]
+
+
+class TestSchedulerEndpoints:
+    """Tests for scheduler endpoints."""
+
+    def test_scheduler_status(self, client):
+        """Test scheduler status endpoint."""
+        response = client.get("/scheduler/status")
+        assert response.status_code == 200
+        data = response.json()
+        assert "enabled" in data
+        assert "running" in data
+
+    def test_scheduler_trigger_when_not_running(self, client):
+        """Test trigger when scheduler not running."""
+        response = client.post("/scheduler/trigger")
+        assert response.status_code == 200
+        data = response.json()
+        # In tests, scheduler might not be running
+        assert "success" in data
