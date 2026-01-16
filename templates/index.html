@@ -45,18 +45,6 @@
                 <p class="card-original-title">{{ item.title }}</p>
                 {% endif %}
 
-                {% if item.summary %}
-                <p class="card-summary">{{ item.summary }}</p>
-                {% endif %}
-
-                {% if item.tags %}
-                <div class="card-tags">
-                    {% for tag in item.tags %}
-                    <span class="tag">{{ tag }}</span>
-                    {% endfor %}
-                </div>
-                {% endif %}
-
                 <div class="card-actions">
                     <button class="btn btn-skip" onclick="reviewItem({{ item.id }}, 'skip')">
                         건너뛰기
