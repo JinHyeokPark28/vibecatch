@@ -10,15 +10,28 @@
 |-----|-------|
 | Project | VibeCatch |
 | Type | Python/FastAPI API Server |
-| Status | In Development |
+| Status | **🚀 Production** |
 | PRD | docs/PRD.md (v1.1 Approved) |
+| **Live URL** | https://vibecatch.up.railway.app |
 
 ---
 
 ## Current State
 
-**Phase**: MVP 완료 + UX 개선
-**Next Action**: 배포 준비
+**Phase**: 🎉 배포 완료
+**Next Action**: 모니터링 & 피드백 수집
+
+---
+
+## Deployment Info
+
+| 항목 | 값 |
+|------|-----|
+| Platform | Railway |
+| URL | https://vibecatch.up.railway.app |
+| DB | SQLite (Volume 마운트, 영속성 확보) |
+| Auto Deploy | GitHub push → 자동 배포 |
+| Health Check | /health ✅ |
 
 ---
 
@@ -47,12 +60,14 @@
   - 수집량 100개 (HN 25 + Reddit 25 + DevTo 20 + PH 15 + TLDR 15)
   - Rate limit 3 → 10/일
   - PORT 환경변수 지원
+- [x] **Railway 배포** - LIVE (2026-01-17)
 
 ---
 
 ## Next Tasks
 
-1. [ ] 배포 준비
+1. [ ] 모니터링 & 에러 트래킹
+2. [ ] 사용자 피드백 수집
 
 ---
 
