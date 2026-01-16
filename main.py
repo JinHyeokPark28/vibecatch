@@ -66,24 +66,36 @@ async def collect_items():
     """
     Manual collection trigger.
 
-    Collects items from HN and summarizes them using Claude API.
+    Collects items from HN and Reddit, then summarizes using Claude API.
     """
-    from collectors.hackernews import collect_and_save
+    from collectors.hackernews import collect_and_save as collect_hn
+    from collectors.reddit import collect_and_save as collect_reddit
     from summarizer import summarize_new_items
 
     # Step 1: Collect from HN
-    logger.info("Starting collection...")
-    collect_result = await collect_and_save()
+    logger.info("Collecting from Hacker News...")
+    hn_result = await collect_hn()
 
-    # Step 2: Summarize new items
+    # Step 2: Collect from Reddit
+    logger.info("Collecting from Reddit...")
+    reddit_result = await collect_reddit()
+
+    # Step 3: Summarize new items
     logger.info("Starting summarization...")
     summary_result = await summarize_new_items(limit=10)
 
     return {
         "collected": {
-            "fetched": collect_result["fetched"],
-            "inserted": collect_result["inserted"],
-            "skipped": collect_result["skipped"],
+            "hn": {
+                "fetched": hn_result["fetched"],
+                "inserted": hn_result["inserted"],
+                "skipped": hn_result["skipped"],
+            },
+            "reddit": {
+                "fetched": reddit_result["fetched"],
+                "inserted": reddit_result["inserted"],
+                "skipped": reddit_result["skipped"],
+            },
         },
         "summarized": {
             "total": summary_result.total,

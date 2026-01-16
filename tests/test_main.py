@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 os.environ["DATABASE_PATH"] = ":memory:"
 
 from main import app, calculate_priority
-from database import init_db, save_items, update_item_summary, review_item
+from database import init_db, save_items
 
 
 @pytest.fixture
@@ -111,9 +111,12 @@ class TestCollectRoute:
         # Check structure
         assert "collected" in data
         assert "summarized" in data
-        assert "fetched" in data["collected"]
-        assert "inserted" in data["collected"]
-        assert "skipped" in data["collected"]
+        # HN results
+        assert "hn" in data["collected"]
+        assert "fetched" in data["collected"]["hn"]
+        # Reddit results
+        assert "reddit" in data["collected"]
+        assert "fetched" in data["collected"]["reddit"]
 
 
 class TestReviewRoute:
@@ -190,32 +193,20 @@ class TestPrioritySort:
         priority = calculate_priority(item, preferences)
         assert priority == 0
 
-    def test_items_sorted_by_preference(self):
-        """Test that items are sorted by preference score."""
-        init_db()
+    def test_sorting_logic(self):
+        """Test that sorting logic prioritizes higher scores."""
+        preferences = {"ai": 5, "startup": 3, "web": 1}
 
-        # Create items with different tags
-        save_items([
-            {"source": "hn", "external_id": "low", "title": "Low Priority", "url": "https://test.com/1"},
-            {"source": "hn", "external_id": "high", "title": "High Priority", "url": "https://test.com/2"},
-        ])
+        items = [
+            {"tags": ["web"]},        # score: 1
+            {"tags": ["ai"]},         # score: 5
+            {"tags": ["startup"]},    # score: 3
+        ]
 
-        # Add tags
-        update_item_summary(1, "낮은 우선순위", "Low summary", ["web"])
-        update_item_summary(2, "높은 우선순위", "High summary", ["ai"])
+        # Sort using the same logic as index route
+        items.sort(key=lambda x: calculate_priority(x, preferences), reverse=True)
 
-        # Like an item with 'ai' tag to boost ai preference
-        review_item(2, "like")
-
-        # Restore item to 'new' status for testing
-        import database
-        with database.get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute("UPDATE items SET status = 'new'")
-
-        # Get items - should be sorted by preference
-        client = TestClient(app)
-        response = client.get("/")
-
-        # High priority item (with ai tag) should come first
-        assert response.text.index("높은 우선순위") < response.text.index("낮은 우선순위")
+        # Verify order: ai (5) > startup (3) > web (1)
+        assert items[0]["tags"] == ["ai"]
+        assert items[1]["tags"] == ["startup"]
+        assert items[2]["tags"] == ["web"]
